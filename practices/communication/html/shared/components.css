@@ -1,0 +1,37 @@
+/* Shared component appearance; hosts own placement and content-specific styles. */
+:root { --ease-out:cubic-bezier(.2,.8,.2,1); }
+.select-trigger { --select-ink:var(--text,var(--ink,#253443)); --select-soft:white; width:100%; min-height:42px; justify-content:space-between; padding:9px 12px; gap:14px; background:var(--select-soft); color:var(--select-ink); text-align:left; border:1px solid #bdcbd6; box-shadow:0 1px 2px #25344306; }
+.select-trigger[data-tone="amber"],.select-option[data-tone="amber"] { --select-ink:var(--ui-amber,#a34d2c); --select-soft:var(--ui-amber-soft,#fff0e6); }
+.select-trigger[data-tone="blue"],.select-option[data-tone="blue"] { --select-ink:var(--ui-blue,#365fa0); --select-soft:var(--ui-blue-soft,#eaf0fc); }
+.select-trigger[data-tone="purple"],.select-option[data-tone="purple"] { --select-ink:var(--ui-purple,#74528d); --select-soft:var(--ui-purple-soft,#f2ecf7); }
+.select-trigger[data-tone="green"],.select-option[data-tone="green"] { --select-ink:var(--ui-green,#3b725c); --select-soft:var(--ui-green-soft,#eaf3ed); }
+.select-trigger:hover { background:var(--select-soft); border-color:#7f9aaf; box-shadow:0 2px 6px #25344312; }
+.select-trigger[aria-expanded="true"] { border-color:var(--accent); box-shadow:0 0 0 3px #246d6114; }
+.select-value { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.select-chevron { transform:rotate(90deg); width:14px; height:14px; opacity:.75; transition:transform 180ms var(--ease-out); }
+.select-trigger[aria-expanded="true"] .select-chevron { transform:rotate(-90deg); }
+.select-menu,.quick-preview { position:fixed; z-index:100; margin:0; border:1px solid #d5dfe7; background:#fff; box-shadow:0 16px 48px #203c4929,0 3px 10px #203c4912; border-radius:12px; overflow:auto; overscroll-behavior:contain; animation:layer-in 180ms var(--ease-out); }
+.select-menu { padding:6px; }
+.select-option { display:flex; align-items:center; gap:10px; min-height:58px; padding:10px; border-radius:7px; cursor:pointer; transition:background-color 120ms; }
+.select-option:hover { background:#f2f6f8; }
+.select-option.is-active { background:var(--select-soft,#eaf3ef); box-shadow:inset 0 0 0 1px #246d6130; }
+.select-option-copy { flex:1; min-width:0; }
+.select-option strong { display:block; color:var(--select-ink,var(--text)); font-size:13px; font-weight:600; line-height:1.5; }
+.select-option small { display:block; margin-top:3px; color:var(--muted); font-size:11px; line-height:1.5; overflow-wrap:anywhere; }
+.select-dot { width:8px; height:8px; flex:none; border-radius:50%; background:var(--select-ink,#71889a); }
+.select-check { flex:none; color:var(--select-ink,var(--accent)); font-size:16px; width:18px; }
+.quick-preview { padding:20px; color:var(--text,var(--ink,#253443)); font-size:13px; line-height:1.7; }
+.quick-preview h3 { overflow-wrap:anywhere; margin:12px 0 8px; font-size:17px; line-height:1.5; color:#2c4353; letter-spacing:-.015em; }
+.preview-summary { margin:8px 0; color:#435c6f; font-size:13px; line-height:1.85; overflow-wrap:anywhere; }
+.preview-divider { height:1px; background:var(--line); margin:16px 0; }
+.preview-label { display:block; color:var(--faint); margin:12px 0 6px; font-size:11px; font-weight:600; }
+.preview-work-title { display:block; font-size:13px; color:#315f91; }
+.preview-source { color:var(--muted); font-size:12px; margin:4px 0; }
+.preview-path { display:block; margin-top:6px; color:#577087; font:11px/1.7 var(--mono); overflow-wrap:anywhere; }
+.quick-preview footer { margin:16px -20px -20px; padding:10px 20px; border-top:1px solid #e6edf2; color:var(--muted); background:#f6f9fb; font-size:11px; }
+@keyframes reading-in { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+@keyframes layer-in { from { opacity:0; transform:translateY(-4px) scale(.985); } to { opacity:1; transform:none; } }
+@keyframes feedback-in { from { opacity:0; transform:translateY(3px); } to { opacity:1; transform:none; } }
+.select-trigger[aria-disabled="true"] { opacity:.65; cursor:progress; box-shadow:none; }
+@media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important; transition:none!important; scroll-behavior:auto!important; } }
+@media print { .quick-preview,.select-menu { display:none!important; } }

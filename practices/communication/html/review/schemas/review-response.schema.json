@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/html-review-workbench/review-response.schema.json",
+  "title": "HTML review response",
+  "type": "object",
+  "required": ["schemaVersion", "bundleId", "bundleDigest", "files", "comments", "decisions"],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "bundleId": { "type": "string", "minLength": 1 },
+    "bundleDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "accepted", "desiredText"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "accepted": { "type": "boolean" },
+          "desiredText": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "comments": { "type": "array", "items": { "type": "object" } },
+    "decisions": { "type": "array", "items": { "type": "object" } }
+  },
+  "additionalProperties": false
+}

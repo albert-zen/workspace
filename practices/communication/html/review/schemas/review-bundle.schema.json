@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/html-review-workbench/review-bundle.schema.json",
+  "title": "HTML review workbench bundle",
+  "type": "object",
+  "required": ["schemaVersion", "bundleId", "bundleDigest", "mode", "createdAt", "title", "question", "summary", "comparison", "sources", "story", "files"],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "bundleId": { "type": "string", "minLength": 1 },
+    "bundleDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "mode": { "enum": ["git-review", "reflection"] },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "title": { "type": "string", "minLength": 1 },
+    "question": { "type": "string", "minLength": 1 },
+    "summary": { "type": "string", "minLength": 1 },
+    "comparison": { "type": "object" },
+    "sources": { "type": "array", "items": { "type": "object" } },
+    "story": {
+      "type": "object",
+      "required": ["claims"],
+      "properties": { "claims": { "type": "array", "items": { "type": "object" } } }
+    },
+    "files": { "type": "array", "items": { "type": "object" } }
+  },
+  "additionalProperties": false
+}

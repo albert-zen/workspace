@@ -1,0 +1,43 @@
+/dev/
+/archive/
+/agent-data/*
+!/agent-data/projects/
+!/agent-data/events/
+/agent-data/projects/*
+!/agent-data/projects/.gitkeep
+/agent-data/events/*
+!/agent-data/events/.gitkeep
+/personal/*
+!/personal/personal.md
+!/personal/inbox/
+/personal/inbox/inbox.md
+!/personal/captures/
+!/personal/syntheses/
+!/personal/concepts/
+/personal/captures/*
+!/personal/captures/.gitkeep
+/personal/syntheses/*
+!/personal/syntheses/.gitkeep
+/personal/concepts/*
+!/personal/concepts/.gitkeep
+
+# Keep the memory directory, but ignore its contents.
+/memory/*
+!/memory/.gitkeep
+
+# Python runtime caches
+__pycache__/
+*.py[cod]
+
+# Local application state, credentials, editor and release output
+.work-review.lock
+.DS_Store
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+/release/
+/dist/

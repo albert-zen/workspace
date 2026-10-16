@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>__WORKBENCH_TITLE__</title>
+  <style>__WORKBENCH_CSS__</style>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">跳到主要内容</a>
+
+  <!-- Primer Octicons v19.33.0 (MIT), embedded as a sprite for offline rendering. -->
+  <svg class="icon-sprite" aria-hidden="true">
+    <symbol id="octicon-arrow-left" viewBox="0 0 16 16"><path d="M7.78 12.53a.75.75 0 0 1-1.06 0L2.47 8.28a.75.75 0 0 1 0-1.06l4.25-4.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042L4.81 7h7.44a.75.75 0 0 1 0 1.5H4.81l2.97 2.97a.75.75 0 0 1 0 1.06Z"/></symbol>
+    <symbol id="octicon-info" viewBox="0 0 16 16"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"/></symbol>
+    <symbol id="octicon-issue" viewBox="0 0 16 16"><path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"/></symbol>
+    <symbol id="octicon-file" viewBox="0 0 16 16"><path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z"/></symbol>
+    <symbol id="octicon-comment" viewBox="0 0 16 16"><path d="M1.75 1h8.5c.966 0 1.75.784 1.75 1.75v5.5A1.75 1.75 0 0 1 10.25 10H7.061l-2.574 2.573A1.458 1.458 0 0 1 2 11.543V10h-.25A1.75 1.75 0 0 1 0 8.25v-5.5C0 1.784.784 1 1.75 1ZM1.5 2.75v5.5c0 .138.112.25.25.25h1a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h3.5a.25.25 0 0 0 .25-.25v-5.5a.25.25 0 0 0-.25-.25h-8.5a.25.25 0 0 0-.25.25Zm13 2a.25.25 0 0 0-.25-.25h-.5a.75.75 0 0 1 0-1.5h.5c.966 0 1.75.784 1.75 1.75v5.5A1.75 1.75 0 0 1 14.25 12H14v1.543a1.458 1.458 0 0 1-2.487 1.03L9.22 12.28a.749.749 0 0 1 .326-1.275.749.749 0 0 1 .734.215l2.22 2.22v-2.19a.75.75 0 0 1 .75-.75h1a.25.25 0 0 0 .25-.25Z"/></symbol>
+    <symbol id="octicon-screen-full" viewBox="0 0 16 16"><path d="M1.75 10a.75.75 0 0 1 .75.75v2.5c0 .138.112.25.25.25h2.5a.75.75 0 0 1 0 1.5h-2.5A1.75 1.75 0 0 1 1 13.25v-2.5a.75.75 0 0 1 .75-.75Zm12.5 0a.75.75 0 0 1 .75.75v2.5A1.75 1.75 0 0 1 13.25 15h-2.5a.75.75 0 0 1 0-1.5h2.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 .75-.75ZM2.75 2.5a.25.25 0 0 0-.25.25v2.5a.75.75 0 0 1-1.5 0v-2.5C1 1.784 1.784 1 2.75 1h2.5a.75.75 0 0 1 0 1.5ZM10 1.75a.75.75 0 0 1 .75-.75h2.5c.966 0 1.75.784 1.75 1.75v2.5a.75.75 0 0 1-1.5 0v-2.5a.25.25 0 0 0-.25-.25h-2.5a.75.75 0 0 1-.75-.75Z"/></symbol>
+    <symbol id="octicon-pencil" viewBox="0 0 16 16"><path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 0l1.086 1.086a1.75 1.75 0 0 1 0 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 0 1-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61Zm.176 4.823L9.75 4.81l-6.286 6.287a.253.253 0 0 0-.064.108l-.558 1.953 1.953-.558a.253.253 0 0 0 .108-.064Zm1.238-3.763a.25.25 0 0 0-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 0 0 0-.354Z"/></symbol>
+    <symbol id="octicon-check" viewBox="0 0 16 16"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/></symbol>
+    <symbol id="octicon-x" viewBox="0 0 16 16"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></symbol>
+    <symbol id="octicon-download" viewBox="0 0 16 16"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"/><path d="M7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06l1.97 1.969Z"/></symbol>
+    <symbol id="octicon-copy" viewBox="0 0 16 16"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></symbol>
+    <symbol id="octicon-check-circle" viewBox="0 0 16 16"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm1.5 0a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Zm10.28-1.72-4.5 4.5a.75.75 0 0 1-1.06 0l-2-2a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l1.47 1.47 3.97-3.97a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042Z"/></symbol>
+    <symbol id="octicon-chevron-up" viewBox="0 0 16 16"><path d="M3.22 10.53a.749.749 0 0 1 0-1.06l4.25-4.25a.749.749 0 0 1 1.06 0l4.25 4.25a.749.749 0 1 1-1.06 1.06L8 6.811 4.28 10.53a.749.749 0 0 1-1.06 0Z"/></symbol>
+    <symbol id="octicon-chevron-down" viewBox="0 0 16 16"><path d="M12.78 5.22a.749.749 0 0 1 0 1.06l-4.25 4.25a.749.749 0 0 1-1.06 0L3.22 6.28a.749.749 0 1 1 1.06-1.06L8 8.939l3.72-3.719a.749.749 0 0 1 1.06 0Z"/></symbol>
+    <symbol id="octicon-chevron-left" viewBox="0 0 16 16"><path d="M9.78 12.78a.75.75 0 0 1-1.06 0L4.47 8.53a.75.75 0 0 1 0-1.06l4.25-4.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042L6.06 8l3.72 3.72a.75.75 0 0 1 0 1.06Z"/></symbol>
+    <symbol id="octicon-chevron-right" viewBox="0 0 16 16"><path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z"/></symbol>
+  </svg>
+
+  <nav class="command-bar" id="command-bar" aria-label="工作台视图">
+    <button class="brand-button" id="show-problems" type="button">
+      <span class="brand-mark" id="brand-mark">W</span>
+      <span id="command-title">问题</span>
+    </button>
+    <div class="command-context" id="command-context"></div>
+    <div class="command-actions">
+      <button class="command-button" id="toggle-report" type="button" aria-pressed="false"><svg class="octicon" aria-hidden="true"><use href="#octicon-info"></use></svg><span>信息</span></button>
+      <button class="command-button review-only" id="toggle-issue" type="button" aria-pressed="true"><svg class="octicon" aria-hidden="true"><use href="#octicon-issue"></use></svg><span>问题说明</span></button>
+      <button class="command-button review-only" id="toggle-files" type="button" aria-pressed="true"><svg class="octicon" aria-hidden="true"><use href="#octicon-file"></use></svg><span>文件</span></button>
+      <button class="command-button review-only" id="toggle-inspector" type="button" aria-pressed="true"><svg class="octicon" aria-hidden="true"><use href="#octicon-comment"></use></svg><span>批注</span></button>
+      <button class="command-button review-only" id="enter-zen" type="button"><svg class="octicon" aria-hidden="true"><use href="#octicon-screen-full"></use></svg><span>Zen</span></button>
+      <button class="icon-button" id="collapse-command" type="button" aria-label="收起工具栏"><svg class="octicon" aria-hidden="true"><use href="#octicon-chevron-up"></use></svg></button>
+    </div>
+  </nav>
+  <button class="restore-command" id="restore-command" type="button">展开工具</button>
+  <button class="review-back-to-problems" id="review-back-to-problems" type="button"><svg class="octicon" aria-hidden="true"><use href="#octicon-arrow-left"></use></svg><span>问题总览</span></button>
+
+  <header class="report-header" id="review-header"></header>
+
+  <main id="main-content">
+    <section class="overview-screen" id="overview-screen" aria-labelledby="problem-map-title">
+      <div class="problem-map">
+        <header class="problem-map-heading"><h1 id="problem-map-title" tabindex="-1">问题总览</h1><p>选择一个问题，核对对应文件与实际改动。</p></header>
+        <div class="problem-branches" id="problem-list" aria-label="问题列表"></div>
+      </div>
+      <aside class="problem-preview" id="problem-preview" aria-live="polite"></aside>
+    </section>
+
+    <section class="review-screen" id="review-screen" hidden>
+      <section class="issue-strip" id="issue-strip">
+        <div class="issue-strip-copy" id="issue-strip-copy"></div>
+        <button class="icon-button" id="collapse-issue" type="button" aria-label="收起问题说明"><svg class="octicon" aria-hidden="true"><use href="#octicon-chevron-up"></use></svg></button>
+      </section>
+      <button class="context-restore" id="restore-issue" type="button"><span>显示问题说明</span><svg class="octicon" aria-hidden="true"><use href="#octicon-chevron-down"></use></svg></button>
+
+      <div class="workbench" id="workbench">
+        <button class="edge-restore edge-restore-files" id="restore-files" type="button"><span>文件</span><svg class="octicon" aria-hidden="true"><use href="#octicon-chevron-right"></use></svg></button>
+        <aside class="files-panel" id="files-panel" aria-label="变更文件">
+          <div class="panel-heading">
+            <div><p class="eyebrow">Changed files</p><h2>文件</h2></div>
+            <div class="panel-heading-actions">
+              <span id="file-count" class="count-badge"></span>
+              <button class="icon-button panel-collapse" id="collapse-files" type="button" aria-label="收起文件栏"><svg class="octicon" aria-hidden="true"><use href="#octicon-chevron-left"></use></svg></button>
+            </div>
+          </div>
+          <nav id="file-list" class="file-list" aria-label="切换源文件"></nav>
+        </aside>
+
+        <section class="review-panel" id="review-surface" tabindex="-1">
+          <div class="review-toolbar">
+            <div class="file-identity"><span id="file-status" class="file-status"></span><strong id="current-path" class="current-path"></strong></div>
+            <div class="toolbar-actions">
+              <div id="view-switcher" class="segmented" aria-label="审阅视图"></div>
+              <button class="quiet-button compact-button" id="edit-toggle" type="button">编辑源文件</button>
+              <button class="quiet-button compact-button" id="accept-file" type="button"></button>
+            </div>
+          </div>
+          <div id="file-intent" class="file-intent"></div>
+          <div id="content-surface" class="content-surface" aria-live="polite"></div>
+        </section>
+
+        <aside class="inspector-panel" id="inspector-panel" aria-label="改动依据与批注">
+          <div class="inspector-collapse-row">
+            <button class="icon-button panel-collapse" id="collapse-inspector" type="button" aria-label="收起批注栏"><svg class="octicon" aria-hidden="true"><use href="#octicon-chevron-right"></use></svg></button>
+          </div>
+          <section id="context-panel" class="inspector-section"></section>
+          <section class="inspector-section annotations-section">
+            <div class="section-heading compact">
+              <div><p class="eyebrow">Annotation</p><h2>针对这段改</h2></div>
+              <span class="count-badge" id="comment-count">0</span>
+            </div>
+            <div id="anchor-preview" class="anchor-preview"></div>
+            <form id="comment-form" class="comment-form">
+              <label for="comment-body">批注意见</label>
+              <textarea id="comment-body" rows="3" placeholder="先点一行，或选中一句话，再写希望怎么改"></textarea>
+              <button class="secondary-button" type="submit">添加批注</button>
+            </form>
+            <div id="comment-list" class="comment-list"></div>
+          </section>
+        </aside>
+        <button class="edge-restore edge-restore-inspector" id="restore-inspector" type="button"><svg class="octicon" aria-hidden="true"><use href="#octicon-chevron-left"></use></svg><span>批注</span></button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="action-bar" id="action-bar" aria-label="审阅操作">
+    <div class="review-state" id="review-state"></div>
+    <div class="action-group">
+      <button class="quiet-button" id="download-patch" type="button"><svg class="octicon" aria-hidden="true"><use href="#octicon-download"></use></svg><span>下载 Patch</span></button>
+      <button class="secondary-button" id="copy-feedback" type="button"><svg class="octicon" aria-hidden="true"><use href="#octicon-copy"></use></svg><span>复制反馈</span></button>
+      <button class="primary-button" id="prepare-apply" type="button"><svg class="octicon" aria-hidden="true"><use href="#octicon-check-circle"></use></svg><span>准备应用</span></button>
+    </div>
+  </footer>
+
+  <button class="zen-exit" id="zen-exit" type="button">退出 Zen</button>
+
+  <dialog id="apply-dialog" class="apply-dialog" aria-labelledby="apply-title">
+    <form method="dialog"><button class="dialog-close" aria-label="关闭" value="cancel"><svg class="octicon" aria-hidden="true"><use href="#octicon-x"></use></svg></button></form>
+    <p class="eyebrow">Explicit adapter handoff</p>
+    <h2 id="apply-title">准备交给 Agent 应用</h2>
+    <p>HTML 不会直接写回工作空间。下载响应包后，由 Agent 先检查目标是否 stale，再显式应用。</p>
+    <div id="apply-preview" class="apply-preview"></div>
+    <div class="dialog-actions">
+      <button class="secondary-button" id="download-response" type="button">下载响应包</button>
+      <button class="primary-button" id="copy-apply-command" type="button">复制应用说明</button>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <noscript><div class="noscript-note">核心内容仍可阅读；问题预览、切换视图、编辑、批注和导出需要 JavaScript。</div>__WORKBENCH_FALLBACK__</noscript>
+  <script id="review-data" type="application/json">__WORKBENCH_DATA__</script>
+  <script>__WORKBENCH_JS__</script>
+</body>
+</html>

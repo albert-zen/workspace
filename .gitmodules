@@ -1,0 +1,7 @@
+[submodule "references/matt-pocock-skills"]
+	path = references/matt-pocock-skills
+	url = https://github.com/mattpocock/skills.git
+	branch = main
+[submodule "references/archify"]
+	path = references/archify
+	url = https://github.com/tt-a1i/archify.git

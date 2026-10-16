@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Personal Inbox</title>
+  <link rel="stylesheet" href="/assets/inbox.css">
+</head>
+<body data-route="list">
+  <a class="skip-link" href="#detail-panel">跳到事项详情</a>
+  <header class="app-bar">
+    <div class="mobile-route" id="mobile-route" hidden></div>
+    <a class="app-title" href="#inbox" id="app-home"><svg class="app-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true"><rect x="3" y="4" width="26" height="24" rx="6" stroke="currentColor" stroke-width="1.6"/><path d="M3 19h8l2 4h6l2-4h8M10 11h12M10 15h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Inbox</span><span class="app-caption">工作空间 / 关注事项</span></a>
+    <div class="app-actions">
+      <span id="sync-state" class="sync-state" aria-live="polite">读取中</span>
+      <button id="reload-inbox" class="text-button" type="button">刷新</button>
+      <button id="new-entry" class="primary" type="button"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>新增事项</span></button>
+    </div>
+  </header>
+  <div id="app-error" class="global-feedback" role="alert" tabindex="-1" hidden></div>
+  <main id="workspace" class="workspace" aria-busy="true">
+    <aside id="list-panel" class="list-panel" aria-labelledby="list-heading">
+      <div class="list-heading-row">
+        <h1 id="list-heading" tabindex="-1">关注事项</h1>
+        <span id="item-total" class="item-total" role="status"></span>
+      </div>
+      <div class="project-filter-row"><select id="project-filter" aria-label="项目"><option value="*">全部项目</option></select></div>
+      <p id="order-feedback" class="order-feedback" role="status" aria-live="polite"></p>
+      <div id="status-groups"></div>
+    </aside>
+    <section id="detail-panel" class="detail-panel" tabindex="-1" aria-labelledby="detail-heading">
+      <div id="detail-content" class="detail-content"></div>
+    </section>
+  </main>
+  <script src="/assets/inbox.js" defer></script>
+</body>
+</html>
