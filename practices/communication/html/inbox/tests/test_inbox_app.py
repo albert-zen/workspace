@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import os
 from pathlib import Path
 import shlex
 import subprocess
@@ -106,6 +107,8 @@ class InboxAppTest(unittest.TestCase):
         reloaded = json.loads(self.request("GET", "/api/inbox")[2])["sections"][1]["items"][0]
         self.assertEqual(reloaded["itemId"], original_id)
         command = shlex.split(reloaded["handoffCommand"])
+        if os.name == 'nt':
+            command = command[1:]
         self.assertTrue(Path(command[0]).is_absolute())
         self.assertEqual(command[-2:], ["resume", reloaded["semanticName"]])
         self.assertEqual(command[command.index("--root") + 1], str(self.root.resolve()))
@@ -159,8 +162,14 @@ class InboxAppTest(unittest.TestCase):
         status, _, body = self.request("PUT", "/api/inbox", update, headers)
         self.assertEqual(status, 200, body)
         item = json.loads(body)["sections"][0]["items"][0]
-        self.assertEqual(shlex.split(item["handoffCommand"])[-1], item["semanticName"])
-        result = subprocess.run(["/bin/sh", "-c", item["handoffCommand"]], capture_output=True, text=True, timeout=15)
+        if os.name == 'nt':
+            import base64
+            encoded = base64.b64encode(item['handoffCommand'].encode('utf-16-le')).decode('ascii')
+            args = ['powershell', '-NoProfile', '-NonInteractive', '-EncodedCommand', encoded]
+        else:
+            self.assertEqual(shlex.split(item["handoffCommand"])[-1], item["semanticName"])
+            args = ["/bin/sh", "-c", item["handoffCommand"]]
+        result = subprocess.run(args, capture_output=True, text=True, timeout=15)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(title, result.stdout)
 
@@ -168,6 +177,8 @@ class InboxAppTest(unittest.TestCase):
         current = json.loads(self.request("GET", "/api/inbox")[2])
         original = current["sections"][-1]["items"][0]
         command = shlex.split(original["handoffCommand"])
+        if os.name == 'nt':
+            command = command[1:]
         result = subprocess.run(command[:-2] + ["add", "demo/Added from CLI", "--summary", "Added from CLI."], capture_output=True, text=True, timeout=15)
         self.assertEqual(result.returncode, 0, result.stderr)
         stale = self.update_payload(current)

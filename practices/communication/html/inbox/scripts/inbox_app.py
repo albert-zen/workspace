@@ -7,6 +7,7 @@ import argparse
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 from pathlib import Path
 import socket
 import sys
@@ -36,8 +37,13 @@ def _error(code: str, message: str, *, field=None, line=None, action: str) -> di
 
 class InboxServer(ThreadingHTTPServer):
     # Permit restart after SSE sockets enter TIME_WAIT; a live listener still owns its port.
-    allow_reuse_address = True
+    allow_reuse_address = os.name != 'nt'
     daemon_threads = True
+
+    def server_bind(self):
+        if os.name == 'nt':
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
 
     def __init__(self, address: tuple[str, int], handler, repo_root: Path) -> None:
         self.repo_root = repo_root.resolve()

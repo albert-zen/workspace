@@ -10,7 +10,6 @@ import os
 from pathlib import Path
 from . import WORKSPACE_ROOT
 import re
-import shlex
 import tempfile
 import uuid
 
@@ -277,6 +276,7 @@ class WorkStore(WorkFlowMixin):
         return matches[0]
 
     def _snapshot(self, state, doc):
+        from .work_interface import command
         sections = document_to_api(doc)
         for section in sections:
             for item in section['items']:
@@ -284,7 +284,7 @@ class WorkStore(WorkFlowMixin):
                 item.update(semanticName=record['name'], lifecycleStatus=record['lifecycleStatus'],
                             arrangementNote=record.get('arrangement', ''),
                             closeoutPending=record.get('closeoutPending', []),
-                            handoffCommand=shlex.join([str(self.launcher), '--root', str(self.root), 'resume', record['name']]))
+                            handoffCommand=command(self, 'resume', record['name']))
         return {'sourcePath': 'personal/inbox/inbox.md', 'absoluteSourcePath': str(self.inbox),
                 'revision': revision_for(self.inbox.read_bytes()), 'sections': sections}
 
@@ -793,7 +793,8 @@ class WorkStore(WorkFlowMixin):
                                   for r in state['items'].values())
                     # Active platform execution cannot be inferred from a URL.
                     platform_pending = any(r['kind'] == 'thread' and not r.get('released') for r in record['resources'])
-                    response = cleanup_resource(resource, shared=sharing or platform_pending)
+                    response = cleanup_resource(resource, shared=sharing or platform_pending,
+                                                archive_root=self.root / 'agent-data/worktree-recovery')
                     resource['cleanup'] = response
                     if response.get('status') == 'cleaned':
                         resource['status'] = 'cleaned'
@@ -888,6 +889,17 @@ class WorkStore(WorkFlowMixin):
                 return self._view(record, document=True)
             path = self._path(record['workPath'])
             current = self._read(path)
+            # Editors may convert LF/CRLF. Preserve protected sections byte-for-byte
+            # when that is their only change; content/whitespace edits still fail.
+            from .work_documents import split_work_sections
+            parts = split_work_sections(text)
+            originals = {p['title']: p for p in split_work_sections(current)
+                         if p['level'] == 2 and p['title'] in ('当前计划', '历史记录')}
+            for part in parts:
+                original = originals.get(part['title']) if part['level'] == 2 else None
+                if original and part['markdown'].replace('\r\n', '\n') == original['markdown'].replace('\r\n', '\n'):
+                    part['markdown'] = original['markdown']
+            text = ''.join(p['markdown'] for p in parts)
             if current != text:
                 try:
                     if self._view(record)['revision'] != metadata['revision']:

@@ -21,7 +21,7 @@
 
 ## 五分钟开始
 
-需要 Python 3.9+；Git 资源管理支持 macOS/Linux。无需安装 Python 第三方包。Node.js 仅用于运行前端测试，不是日常使用依赖。
+需要 Python 3.9+；Git 资源管理支持 Windows、macOS 和 Linux。无需安装 Python 第三方包。Node.js 仅用于运行前端测试，不是日常使用依赖。
 
 先获取仓库，再在仓库根目录运行：
 

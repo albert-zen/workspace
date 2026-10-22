@@ -130,6 +130,27 @@ class WorkStoreTests(unittest.TestCase):
         self.assertEqual(result['closeoutPending'], [])
         self.store.finish('demo/Tree')
 
+    def test_finish_previews_ignored_archival_and_reports_recovery_after_cleanup(self):
+        repo = self.root / 'repo'; repo.mkdir()
+        def git(*args):
+            return subprocess.run(['git', '-C', str(repo), *args], check=True, capture_output=True)
+        git('init', '-b', 'main'); git('config', 'user.name', 'Test'); git('config', 'user.email', 'test@example.invalid')
+        (repo / '.gitignore').write_text('outputs/\n')
+        git('add', '.'); git('commit', '-m', 'initial')
+        item = self.store.start('demo/Recoverable', summary='Exercise safe closeout', worktree=True, repo=repo)
+        tree = Path(item['resources'][0]['path'])
+        (tree / 'outputs').mkdir(); (tree / 'outputs/local.data').write_bytes(b'local bytes')
+        preview = self.store.finish('demo/Recoverable', result='Complete', dry_run=True)
+        self.assertTrue(preview['resourceObservations'][0]['only_ignored'])
+        self.assertTrue((tree / 'outputs/local.data').exists())
+        result = self.store.finish('demo/Recoverable', result='Complete')
+        self.assertEqual(result['closeoutPending'], [])
+        self.assertFalse(tree.exists())
+        archive = Path(result['resources'][0]['cleanup']['archives'][0])
+        self.assertTrue(archive.is_relative_to(self.root / 'agent-data/worktree-recovery'))
+        self.assertEqual((archive / 'files/outputs/local.data').read_bytes(), b'local bytes')
+        self.assertEqual(self.store.resume('demo/Recoverable')['resources'][0]['cleanup']['archives'], [str(archive)])
+
     def test_completed_consumer_keeps_branch_until_it_releases_use(self):
         repo = self.root / 'repo'; repo.mkdir()
         for args in [('init', '-b', 'main'), ('config', 'user.name', 'Test'), ('config', 'user.email', 'test@example.invalid'), ('commit', '--allow-empty', '-m', 'initial')]:

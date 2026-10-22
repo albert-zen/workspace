@@ -2,7 +2,7 @@
 
 这是一个零新增依赖的本机 Web App。`personal/inbox/inbox.md` 保存个人关注内容，关联 Work 保存事项说明与执行记录；Web App 与 `bin/work` 都调用根目录 [`workflow/`](../../../../workflow/README.md) 的维护逻辑。HTML、CSS 与 JavaScript 是无内容应用 shell，页面启动后通过固定 API 读取和原子回写 Markdown。
 
-运行时需要 Python 3.9 或以上；当前 Git 资源管理使用 macOS/Linux 的文件锁。从 workspace 根目录运行：
+运行时需要 Python 3.9 或以上；Git 资源管理使用各平台对应的文件锁，支持 Windows、macOS 和 Linux。从 workspace 根目录运行：
 
 ```text
 python practices/communication/html/inbox/scripts/inbox_app.py --repo-root /path/to/workspace
@@ -26,6 +26,13 @@ python practices/communication/html/inbox/scripts/inbox_app.py --repo-root /path
 详细 Markdown grammar 见 [`personal/inbox/schema.md`](../../../../personal/inbox/schema.md)。
 
 ## 验证
+
+Windows PowerShell 在仓库根目录使用 `python -X utf8 ./bin/work`，无需安装或符号链接权限；
+返回的后续命令可以直接在 PowerShell 粘贴执行。GUI 的“复制给 AI”采用同一入口。
+需要短命令时运行 `python -X utf8 ./bin/work install --bin-dir ./bin`，
+会创建 `work.cmd`，保留已有程序，不修改 PATH 或执行策略。未加入 PATH 时用 `./bin/work.cmd`。
+换 Python 安装位置后需核对并重新安装入口。Windows 回归测试使用 UTF-8：
+`$env:PYTHONUTF8='1'; python -m unittest discover -s practices/communication/html/inbox/tests -p "test_*.py"`。
 
 ```text
 python -m unittest discover -s tests -p "test_*.py"

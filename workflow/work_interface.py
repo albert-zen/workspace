@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 import shlex
 import shutil
+import sys
 
 from .inbox_model import InboxError
 from .work_documents import split_work_sections
@@ -15,6 +17,12 @@ LABELS = {'unverified': '待核实', 'planned': '待开始', 'active': '进行�
 
 
 def command(store, *parts):
+    if os.name == 'nt':
+        # PowerShell needs an invocation operator for a quoted executable path.
+        values = [sys.executable, '-X', 'utf8', str(store.launcher), '--root', str(store.root), *map(str, parts)]
+        def quote(value):
+            return value if re.fullmatch(r'[a-zA-Z0-9_./-]+', value) else "'" + value.replace("'", "''") + "'"
+        return '& ' + ' '.join(quote(value) for value in values)
     installed = shutil.which('work')
     executable = 'work' if installed and Path(installed).resolve() == store.launcher else str(store.launcher)
     root = [] if store.root == store.launcher.parent.parent else ['--root', str(store.root)]
@@ -43,7 +51,28 @@ def entry(store):
 def install(store, directory):
     directory = Path(directory).expanduser().absolute()
     directory.mkdir(parents=True, exist_ok=True)
-    target = directory / 'work'
+    target = directory / ('work.cmd' if os.name == 'nt' else 'work')
+    if os.name == 'nt':
+        # No developer-mode symlink privilege or PowerShell execution policy needed.
+        python = sys.executable.replace('%', '%%')
+        launcher = str(store.launcher).replace('%', '%%')
+        # cmd decodes batch files using the active code page, not their encoding.
+        # Switch before the first non-ASCII line and restore the caller's page.
+        wrapper = ('@echo off\nsetlocal DisableDelayedExpansion\n'
+                   'for /f "tokens=2 delims=:" %%G in (\'chcp\') do set "_work_cp=%%G"\n'
+                   'chcp 65001 >nul\n'
+                   f'"{python}" -X utf8 "{launcher}" %*\n'
+                   'set "_work_exit=%errorlevel%"\n'
+                   'chcp %_work_cp% >nul\n'
+                   'exit /b %_work_exit%\n')
+        if target.is_symlink() or (target.exists() and target.read_text(encoding='utf-8') != wrapper):
+            raise InboxError('命令位置已有其他文件，未覆盖：' + str(target), code='entry_exists')
+        if not target.exists():
+            with target.open('x', encoding='utf-8', newline='\r\n') as stream:
+                stream.write(wrapper)
+        on_path = any(Path(p).resolve() == directory.resolve() for p in os.environ.get('PATH', '').split(os.pathsep) if p)
+        return {'installedPath': str(target), 'onPath': on_path,
+                'defaultWorkspace': str(store.launcher.parent.parent)}
     if target.is_symlink() and target.resolve() == store.launcher:
         pass
     elif target.exists() or target.is_symlink():
@@ -126,6 +155,8 @@ def render(store, args, result):
             lines.append('资源已清理。')
         elif resource.get('released'):
             lines.append('本事项已解除占用。')
+        for archive in resource.get('cleanup', {}).get('archives', []):
+            lines.append('额外文件可恢复归档：' + archive)
     for observation in result.get('resourceObservations', []):
         if observation.get('reason'):
             lines.append('资源状态：' + observation['reason'])
@@ -167,8 +198,10 @@ def render(store, args, result):
         if result.get('dryRun'):
             lines.append('计划：保存结果、核对共享关系后归档 Work，逐项检查临时资源。')
             for observation in result.get('resourceObservations', []):
-                if observation.get('dirty'):
-                    lines.append('保留工作树：含未提交、未跟踪或忽略文件。')
+                if observation.get('merged') and observation.get('only_ignored'):
+                    lines.append('计划：先将 ignored 文件移至可恢复归档，再清理工作树；不按目录名猜测可删除内容。')
+                elif observation.get('dirty'):
+                    lines.append('保留工作树：含未提交或未跟踪文件。')
                 elif observation.get('merged') is False:
                     lines.append('保留工作树：存在尚未进入基线分支的提交。')
             lines.append('仅预览，未执行收尾。')

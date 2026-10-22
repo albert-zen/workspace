@@ -29,7 +29,8 @@ def append_history(document, block):
     for part in sections:
         if part['level'] == 2 and part['title'] == '历史记录':
             old = part['markdown']
-            separator = '' if old.endswith('\n\n') else '\n' if old.endswith('\n') else '\n\n'
+            ending = old.replace('\r\n', '\n')
+            separator = '' if ending.endswith('\n\n') else '\n' if ending.endswith('\n') else '\n\n'
             part['markdown'] = old + separator + block + '\n\n'
             return ''.join(p['markdown'] for p in sections)
     return section_replace(document, '历史记录', block)

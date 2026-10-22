@@ -310,7 +310,7 @@ class SemanticFlowTests(unittest.TestCase):
         self.make_legacy()
         path = self.root / self.store.resume(self.name)['workPath']
         raw = '\n\n    indented code  \n\n\n'
-        path.write_text(path.read_text() + '\n## 当前计划\n' + raw)
+        path.write_text(path.read_text() + '\n## 当前计划\n' + raw, newline='')
         self.save_plan('New plan\n')
         self.assertEqual(self.store.plan_show(self.name, version=1)['plan'], raw)
 

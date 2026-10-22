@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import json
 import shlex
 import shutil
@@ -22,7 +23,7 @@ class WorkJourneyTests(unittest.TestCase):
 
     def run_cli(self, *args):
         return subprocess.run([sys.executable, str(self.cli), '--root', str(self.root), *args],
-                              text=True, capture_output=True, cwd='/tmp')
+                              text=True, capture_output=True, cwd=tempfile.gettempdir())
 
     def test_standalone_checkout_and_installed_link_need_no_inbox_ui(self):
         checkout = self.root / 'code checkout'
@@ -92,6 +93,10 @@ class WorkJourneyTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             cmd = next(line.split('：', 1)[1] for line in result.stdout.splitlines() if line.startswith('编辑上面的副本后保存：'))
             args = shlex.split(cmd)
+            if os.name == 'nt':
+                args = args[1:]  # PowerShell invocation operator; Python is explicit.
+            else:
+                args = [sys.executable, shutil.which(args[0]) or args[0], *args[1:]]
             draft = Path(args[-1])
             self.addCleanup(lambda p=draft: (p.unlink(missing_ok=True), p.parent.rmdir()))
             drafts.append((draft, args))
@@ -100,9 +105,9 @@ class WorkJourneyTests(unittest.TestCase):
         self.assertNotEqual(first, second)
         first.write_text(first.read_text().replace('Original', 'Saved first'))
         second.write_text(second.read_text().replace('Original', 'Unsubmitted second'))
-        saved = subprocess.run([sys.executable, shutil.which(first_cmd[0]) or first_cmd[0], *first_cmd[1:]], text=True, capture_output=True)
+        saved = subprocess.run(first_cmd, text=True, capture_output=True)
         self.assertEqual(saved.returncode, 0, saved.stderr)
-        conflict = subprocess.run([sys.executable, shutil.which(second_cmd[0]) or second_cmd[0], *second_cmd[1:]], text=True, capture_output=True)
+        conflict = subprocess.run(second_cmd, text=True, capture_output=True)
         self.assertNotEqual(conflict.returncode, 0)
         self.assertIn('resume demo/One', conflict.stderr)
         self.assertIn('edit demo/One', conflict.stderr)
@@ -262,12 +267,13 @@ class WorkJourneyTests(unittest.TestCase):
         path.write_text(text)
         self.assertIn(text, self.run_cli('resume', 'demo/One').stdout)
 
+    @unittest.skipIf(os.name == 'nt', 'Windows command installation covered by test_work_windows')
     def test_install_is_cwd_independent_and_preserves_existing_program(self):
         bindir = self.root / 'my bin'
         result = self.run_cli('install', '--bin-dir', str(bindir))
         self.assertEqual(result.returncode, 0, result.stderr)
         result = subprocess.run([sys.executable, str(bindir / 'work'), '--root', str(self.root)],
-                                capture_output=True, text=True, cwd='/tmp')
+                                capture_output=True, text=True, cwd=tempfile.gettempdir())
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(str(self.root), result.stdout)
         (bindir / 'work').unlink()

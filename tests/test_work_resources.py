@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 import subprocess
 import sys
 import tempfile
@@ -64,15 +65,20 @@ class WorkResourcesTest(unittest.TestCase):
         self.assertEqual(cleanup_resource(resource)["status"], "pending")
         self.assertEqual((self.path / "notes.txt").read_text(), "only copy\n")
 
-    def test_ignored_files_are_retained(self):
+    def test_ignored_files_are_archived_before_a_merged_worktree_is_cleaned(self):
         (self.repo / ".gitignore").write_text("*.secret\n")
         self.git("add", ".gitignore")
         self.git("commit", "-m", "ignore generated files")
         resource = self.create()
         (self.path / "only.secret").write_text("valuable local material\n")
         self.assertEqual(self.git("status", "--porcelain", cwd=self.path).stdout, "")
-        self.assertEqual(cleanup_resource(resource)["status"], "pending")
-        self.assertEqual((self.path / "only.secret").read_text(), "valuable local material\n")
+        result = cleanup_resource(resource)
+        self.assertEqual(result["status"], "cleaned")
+        self.assertFalse(self.path.exists())
+        archive = Path(result["archives"][0])
+        self.assertEqual((archive / "files" / "only.secret").read_text(), "valuable local material\n")
+        self.assertTrue((archive / "manifest.json").is_file())
+        self.assertEqual(cleanup_resource(resource)["archives"], result["archives"])
 
     def test_unique_commit_remains_until_merged_into_actual_base(self):
         resource = self.create()
@@ -87,10 +93,72 @@ class WorkResourcesTest(unittest.TestCase):
         self.assertTrue(inspect_resource(resource)["merged"])
         self.assertEqual(cleanup_resource(resource)["status"], "cleaned")
 
+    def test_arbitrary_ignored_directory_is_relocated_intact_without_name_rules(self):
+        (self.repo / ".gitignore").write_text("odd generated directory/\n")
+        self.git("add", ".gitignore"); self.git("commit", "-m", "ignore outputs")
+        resource = self.create()
+        generated = self.path / "odd generated directory"
+        generated.mkdir()
+        for i in range(30):
+            (generated / f"output-{i}").write_bytes(bytes([i]))
+        identity = generated.stat().st_ino
+        result = cleanup_resource(resource)
+        self.assertEqual(result["status"], "cleaned")
+        recovered = Path(result["archives"][0]) / "files" / generated.name
+        self.assertEqual(recovered.stat().st_ino, identity)
+        self.assertEqual(len(list(recovered.iterdir())), 30)
+
+    def test_unmerged_ignored_files_are_not_archived(self):
+        (self.repo / ".gitignore").write_text("*.cache\n")
+        self.git("add", ".gitignore"); self.git("commit", "-m", "ignore outputs")
+        resource = self.create()
+        (self.path / "result.txt").write_text("unique")
+        self.git("add", ".", cwd=self.path); self.git("commit", "-m", "work", cwd=self.path)
+        (self.path / "unique.cache").write_text("retain here")
+        result = cleanup_resource(resource)
+        self.assertEqual(result["status"], "pending")
+        self.assertNotIn("archives", result)
+        self.assertEqual((self.path / "unique.cache").read_text(), "retain here")
+
+    def test_failed_git_removal_keeps_recovery_location_and_can_retry(self):
+        (self.repo / ".gitignore").write_text("*.local\n")
+        self.git("add", ".gitignore"); self.git("commit", "-m", "ignore local data")
+        resource = self.create()
+        (self.path / "data.local").write_text("only copy")
+        original = work_resources._git
+        def fail_remove(repo, *args, **kwargs):
+            if args[:2] == ("worktree", "remove"):
+                raise ResourceError("simulated Git failure")
+            return original(repo, *args, **kwargs)
+        with patch.object(work_resources, "_git", side_effect=fail_remove):
+            result = cleanup_resource(resource)
+        self.assertEqual(result["status"], "pending")
+        archive = Path(result["archives"][0])
+        self.assertEqual((archive / "files/data.local").read_text(), "only copy")
+        self.assertTrue(self.path.is_dir())
+        self.assertEqual(cleanup_resource(resource)["archives"], result["archives"])
+
     def test_shared_resource_is_retained(self):
         resource = self.create()
         self.assertEqual(cleanup_resource(resource, shared=True)["status"], "pending")
         self.assertTrue(self.path.exists())
+
+    def test_archival_preserves_an_ignored_symlink_without_following_its_target(self):
+        (self.repo / ".gitignore").write_text("*.local\n")
+        self.git("add", ".gitignore"); self.git("commit", "-m", "ignore local data")
+        resource = self.create()
+        outside = self.root / "outside.txt"; outside.write_text("external data")
+        link = self.path / "link.local"
+        try:
+            link.symlink_to(outside)
+        except OSError:
+            self.skipTest("Symbolic links unavailable on this host")
+        result = cleanup_resource(resource)
+        self.assertEqual(result["status"], "cleaned")
+        recovered = Path(result["archives"][0]) / "files/link.local"
+        self.assertTrue(recovered.is_symlink())
+        self.assertEqual(os.readlink(recovered), str(outside))
+        self.assertEqual(outside.read_text(), "external data")
 
     def test_existing_branch_and_worktree_are_never_adopted(self):
         self.git("branch", "codex/example")
@@ -138,6 +206,7 @@ class WorkResourcesTest(unittest.TestCase):
         self.assertTrue(self.path.exists())
         self.assertTrue(original.exists())
 
+    @unittest.skipIf(os.name == 'nt', 'Windows symlinks require developer mode')
     def test_symlink_replacement_is_preserved(self):
         resource = self.create()
         original = self.path.with_name("original")
@@ -163,6 +232,7 @@ class WorkResourcesTest(unittest.TestCase):
         self.assertEqual(cleanup_resource(resource)["status"], "pending")
         self.assertTrue(self.path.exists())
 
+    @unittest.skipIf(os.name == 'nt', 'Windows symlinks require developer mode')
     def test_git_directory_replacement_is_retained(self):
         resource = self.create()
         original = self.repo / ".original-git"

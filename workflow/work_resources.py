@@ -7,7 +7,7 @@ independent creation evidence required by cleanup; a branch name is never enough
 from __future__ import annotations
 
 from contextlib import contextmanager
-import fcntl
+import errno
 import json
 import os
 from pathlib import Path
@@ -29,8 +29,12 @@ def _git(repo: Path, *args: str, check: bool = True, input: str | None = None):
         if key.startswith("GIT_"):
             del env[key]
     env["GIT_OPTIONAL_LOCKS"] = "0"
-    result = subprocess.run(["git", "-C", str(repo), *args], input=input,
-                            capture_output=True, text=True, env=env)
+    # Git's stdin protocol requires LF, even on Windows (text=True adds CR).
+    result = subprocess.run(["git", "-C", str(repo), *args],
+                            input=input.encode("utf-8") if input is not None else None,
+                            capture_output=True, env=env)
+    result.stdout = result.stdout.decode("utf-8", errors="replace")
+    result.stderr = result.stderr.decode("utf-8", errors="replace")
     if check and result.returncode:
         raise ResourceError(result.stderr.strip() or "Git operation failed", "git_error")
     return result
@@ -39,6 +43,71 @@ def _git(repo: Path, *args: str, check: bool = True, input: str | None = None):
 def _identity(path: Path) -> list[int]:
     stat = path.stat()
     return [stat.st_dev, stat.st_ino]
+
+
+def _status_entries(path: Path) -> list[str]:
+    value = _git(path, "status", "--porcelain=v1", "--untracked-files=normal", "--ignored=matching", "-z").stdout
+    # Never act on a filename that was lost while decoding Git's output.
+    if "\ufffd" in value:
+        raise ResourceError("Git status contains an undecodable filename; retain the worktree")
+    return [entry for entry in value.split("\0") if entry]
+
+
+def _archive_ignored(record: dict, archive_root: Path | None) -> None:
+    """Relocate ignored entries intact, without guessing names or following links.
+
+    The private manifest is durable before any rename. Renames preserve the
+    entries themselves (including links); no contents are recursively deleted.
+    A partial failure retains both the worktree and the recorded recovery path.
+    """
+    path = Path(record["path"])
+    entries = _status_entries(path)
+    if not entries or any(not entry.startswith("!! ") for entry in entries):
+        raise ResourceError("Worktree changed before ignored-file archival; inspect and retry")
+    sources = []
+    for entry in entries:
+        relative = Path(entry[3:].rstrip("/"))
+        if relative.is_absolute() or relative.drive or not relative.parts or any(part in (".", "..", ".git") for part in relative.parts):
+            raise ResourceError("Git reported an unsafe ignored path; retain the worktree")
+        source = path / relative
+        _no_symlinks(source.parent)
+        stat = source.lstat()
+        sources.append((relative, [stat.st_dev, stat.st_ino]))
+    root = archive_root if archive_root is not None else Path(record["common_dir"]) / "work-resource-archives"
+    root = Path(os.path.abspath(root))
+    if root == path or path in root.parents:
+        raise ResourceError("Recovery archive must be outside the worktree")
+    _no_symlinks(root)
+    archive = root / record["ownership_token"] / uuid.uuid4().hex
+    archive.mkdir(parents=True, mode=0o700)
+    _no_symlinks(archive)
+    manifest = {"worktree": str(path), "head": record["cleanup_head"],
+                "entries": [{"path": str(relative), "identity": identity} for relative, identity in sources]}
+    with (archive / "manifest.json").open("x", encoding="utf-8") as stream:
+        json.dump(manifest, stream, ensure_ascii=False, indent=2)
+        stream.write("\n"); stream.flush(); os.fsync(stream.fileno())
+    record.setdefault("archives", []).append(str(archive))
+    _save(record)
+    for relative, identity in sources:
+        facts = _inspect(record)
+        if (facts["status"] != "ready" or not facts["merged"] or
+                facts["head"] != record["cleanup_head"] or facts["base_head"] != record["cleanup_base_head"] or
+                (facts["dirty"] and not facts["only_ignored"])):
+            raise ResourceError("Worktree changed during archival; retained recovery archive and worktree")
+        source = path / relative
+        _no_symlinks(source.parent)
+        stat = source.lstat()
+        if [stat.st_dev, stat.st_ino] != identity:
+            raise ResourceError("Ignored entry changed during archival; retain and inspect")
+        target = archive / "files" / relative
+        target.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+        _no_symlinks(target.parent)
+        if os.path.lexists(target):
+            raise ResourceError("Recovery destination already exists; refusing to overwrite")
+        source.rename(target)
+        stat = target.lstat()
+        if [stat.st_dev, stat.st_ino] != identity:
+            raise ResourceError("Recovery entry identity could not be confirmed")
 
 
 def _no_symlinks(path: Path):
@@ -127,12 +196,20 @@ def _save(resource: dict):
 def _locked(resource: dict):
     path = _common(Path(resource["repo"])) / "work-resource-operation.lock"
     _no_symlinks(path)
-    descriptor = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    descriptor = os.open(path, os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0), 0o600)
     try:
         try:
-            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError as exc:
-            raise ResourceError("Another resource operation is in progress", "busy") from exc
+            if os.name == "nt":
+                import msvcrt
+                # Windows byte-range locks can cover a byte beyond EOF.
+                msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as exc:
+            if exc.errno in (errno.EACCES, errno.EAGAIN, errno.EDEADLK):
+                raise ResourceError("Another resource operation is in progress", "busy") from exc
+            raise
         yield
     finally:
         os.close(descriptor)
@@ -271,7 +348,8 @@ def _inspect(resource: dict) -> dict:
     if record.get("phase") == "cleaned":
         if path.exists() or matches or _ref_exists(repo, branch_ref):
             return _pending("A resource exists after cleanup; it is not owned by the old receipt")
-        return dict(status="cleaned", details=[], head=None, dirty=False, merged=True)
+        return dict(status="cleaned", details=[], head=None, dirty=False, merged=True,
+                    **({"archives": record["archives"]} if record.get("archives") else {}))
     if not path.exists() or not matches:
         return _pending("Worktree is missing or no longer registered; inspect before removing remaining resources")
     if matches[0] == entries[0]:
@@ -297,12 +375,13 @@ def _inspect(resource: dict) -> dict:
     if any((common / name).exists() for name in
            (f"{branch_ref}.lock", f"{record['base']}.lock", "packed-refs.lock")):
         return _pending("Git resource references have an operation in progress")
-    changes = _git(path, "status", "--porcelain=v1", "--untracked-files=normal", "--ignored=matching", "-z").stdout
+    changes = _status_entries(path)
     head = _commit(path, "HEAD")
     base_head = _commit(repo, record["base"])
     merged = _git(repo, "merge-base", "--is-ancestor", head, base_head, check=False).returncode == 0
     return dict(status="ready", details=[], head=head, base_head=base_head,
-                dirty=bool(changes), merged=merged)
+                dirty=bool(changes), only_ignored=bool(changes) and all(entry.startswith("!! ") for entry in changes),
+                merged=merged, **({"archives": record["archives"]} if record.get("archives") else {}))
 
 
 def inspect_resource(resource: dict) -> dict:
@@ -313,7 +392,7 @@ def inspect_resource(resource: dict) -> dict:
         return _pending(str(exc))
 
 
-def cleanup_resource(resource: dict, *, shared: bool = False) -> dict:
+def cleanup_resource(resource: dict, *, shared: bool = False, archive_root: Path | None = None) -> dict:
     """Remove only evidenced, private, clean, merged local resources.
 
     Pending is an honest retained-resource result, not a completed cleanup. The
@@ -342,24 +421,35 @@ def cleanup_resource(resource: dict, *, shared: bool = False) -> dict:
             facts = _inspect(resource)
             if facts["status"] != "ready":
                 return facts
-            if facts["dirty"]:
-                return dict(facts, status="pending", reason="Worktree contains changed, untracked or ignored files")
+            if facts["dirty"] and not facts["only_ignored"]:
+                return dict(facts, status="pending", reason="Worktree contains changed or untracked files")
             if not facts["merged"]:
                 return dict(facts, status="pending", reason="Worktree has commits not reachable from the current base branch")
             # Revalidate immediately before the non-forced Git operation.
             check = _inspect(resource)
             if check != facts:
                 return _pending("Worktree changed during cleanup; retry after checking the current state")
+            if facts["only_ignored"]:
+                record.update(cleanup_head=facts["head"], cleanup_base_head=facts["base_head"])
+                _archive_ignored(record, archive_root)
+                facts = _inspect(resource)
+                if facts["status"] != "ready" or facts["dirty"] or not facts["merged"]:
+                    return _pending("Worktree changed after archival; retained recovery archive and worktree", archives=record["archives"])
+                check = _inspect(resource)
+                if check != facts:
+                    return _pending("Worktree changed after archival; inspect and retry", archives=record["archives"])
             record.update(phase="removing", cleanup_head=facts["head"], cleanup_base_head=facts["base_head"])
             _save(record)
             removed = _git(repo, "worktree", "remove", "--", str(path), check=False)
             if removed.returncode:
-                return _pending(removed.stderr.strip() or "Git retained the worktree")
+                return _pending(removed.stderr.strip() or "Git retained the worktree",
+                                **({"archives": record["archives"]} if record.get("archives") else {}))
             record["phase"] = "tree_removed"
             _save(record)
             return _remove_branch(record)
     except (ResourceError, OSError, KeyError, ValueError) as exc:
-        return _pending(str(exc))
+        archives = locals().get("record", {}).get("archives", [])
+        return _pending(str(exc), **({"archives": archives} if archives else {}))
 
 
 def _remove_branch(record: dict) -> dict:
@@ -369,17 +459,18 @@ def _remove_branch(record: dict) -> dict:
         head = _commit(repo, branch_ref)
         base_head = _commit(repo, record["base"])
         if head != record.get("cleanup_head"):
-            return _pending("Branch changed after worktree removal; preserving it")
+            return _pending("Branch changed after worktree removal; preserving it", **({"archives": record["archives"]} if record.get("archives") else {}))
         if any(item.get("branch") == branch_ref for item in _worktrees(repo)):
-            return _pending("Branch is now checked out by another worktree")
+            return _pending("Branch is now checked out by another worktree", **({"archives": record["archives"]} if record.get("archives") else {}))
         if _git(repo, "merge-base", "--is-ancestor", head, base_head, check=False).returncode:
-            return _pending("Branch is not reachable from the current base; preserving it")
+            return _pending("Branch is not reachable from the current base; preserving it", **({"archives": record["archives"]} if record.get("archives") else {}))
         # Compare-and-delete both refs atomically: unlike a force branch delete,
         # this cannot erase a newly advanced branch or rely on a moving base.
         transaction = f"start\nverify {record['base']} {base_head}\ndelete {branch_ref} {head}\nprepare\ncommit\n"
         result = _git(repo, "update-ref", "--stdin", input=transaction, check=False)
         if result.returncode:
-            return _pending(result.stderr.strip() or "Branch changed during cleanup")
+            return _pending(result.stderr.strip() or "Branch changed during cleanup", **({"archives": record["archives"]} if record.get("archives") else {}))
     record["phase"] = "cleaned"
     _save(record)
-    return dict(status="cleaned", details=[], head=record.get("cleanup_head"), dirty=False, merged=True)
+    return dict(status="cleaned", details=[], head=record.get("cleanup_head"), dirty=False, merged=True,
+                **({"archives": record["archives"]} if record.get("archives") else {}))
