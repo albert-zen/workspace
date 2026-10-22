@@ -131,6 +131,8 @@ class InboxAppTest(unittest.TestCase):
         self.assertEqual(status, 200, body)
         self.assertTrue(json.loads(body)['sections'][1]['items'][0]['pinned'])
         command = shlex.split(snapshot['sections'][1]['items'][0]['handoffCommand'])[:-2]
+        if command[0] == '&':
+            command = command[1:]
         result = subprocess.run(command + ['arrange', 'demo/Z first', '--before', 'demo/Pinned'], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         reloaded = json.loads(self.request('GET', '/api/inbox')[2])

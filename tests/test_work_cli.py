@@ -25,18 +25,20 @@ class WorkJourneyTests(unittest.TestCase):
         return subprocess.run([sys.executable, str(self.cli), '--root', str(self.root), *args],
                               text=True, capture_output=True, cwd=tempfile.gettempdir())
 
-    def test_standalone_checkout_and_installed_link_need_no_inbox_ui(self):
+    def test_standalone_checkout_and_launcher_need_no_inbox_ui(self):
         checkout = self.root / 'code checkout'
         checkout.mkdir()
         shutil.copytree(ROOT / 'workflow', checkout / 'workflow', ignore=shutil.ignore_patterns('__pycache__'))
         (checkout / 'bin').mkdir()
         shutil.copy2(ROOT / 'bin/work', checkout / 'bin/work')
-        launcher = self.root / 'installed-work'
-        launcher.symlink_to(checkout / 'bin/work')
+        launcher = checkout / 'bin/work'
+        if os.name != 'nt':
+            launcher = self.root / 'installed-work'
+            launcher.symlink_to(checkout / 'bin/work')
 
         def run(*args):
             result = subprocess.run([sys.executable, str(launcher), *args],
-                                    cwd='/tmp', text=True, capture_output=True)
+                                    cwd=tempfile.gettempdir(), text=True, capture_output=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             return result.stdout
 
