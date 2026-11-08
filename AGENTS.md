@@ -8,7 +8,7 @@
 
 我用 Inbox 看有哪些事情要处理，用 Work 保存一件事的背景、计划和进展。这样换一个 Agent 接手，也能知道现在做到哪里、为什么这样做。
 
-接手已有事项时，先用 work resume 看当前记录。新的工作需要持续推进时，用 work start 建立记录；普通问答不用为了登记而建档。工作结束后，用 work finish 保存结果并收尾。具体用法从 work 查看。
+接手已有事项时，先用 work resume 看当前记录。跨回合推进、交接或需要保留重要决定时，用 work start 建立记录，结束后用 work finish 收尾。普通问答和当轮能完成的小事直接处理。具体用法从 work 查看。
 
 ## 我希望的 Agent 行为模式
 
@@ -28,7 +28,9 @@
 
 开始一个项目的工作前，先读它自己的 `AGENTS.md`，了解项目已有的约定。下面是我在工作空间里积累的一些方法，按眼前的工作去读，不需要每次从头看一遍。
 
-做开发时，先了解我偏好的[工程设计方式](practices/engineering/design.md)和[验证方法](practices/engineering/verification.md)。实现完成后安排独立 [Review](practices/collaboration/review.md)，再处理发现的问题。
+做开发时，先了解我偏好的[工程设计方式](practices/engineering/design.md)和[验证方法](practices/engineering/verification.md)。按改动影响选择[自查或独立 Review](practices/collaboration/review.md)，处理发现的问题。
+
+对这套工作空间规则和工具的修改，先在独立工作树准备，再通过 PR 提案供我审阅。
 
 使用 Work 时，命令和状态的含义见 [CLI 使用说明](practices/collaboration/workflow.md)。如果不确定要在记录里留下什么，或者准备整理上下文、交给上下文压缩后的自己或另一位 Agent 接手，看[共同上下文](practices/collaboration/context.md)。
 
