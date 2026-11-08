@@ -32,7 +32,7 @@ Inbox 概述当前判断，展开、详情及复制直接读取 Work 的“事�
 
 当前内容文件是实际工作空间中的 `personal/inbox/inbox.md`。写法与固定状态遵从 `personal/inbox/schema.md`，应用入口是 `practices/communication/html/inbox/README.md`。使用前读取它们；规则重写不改变现有解析器契约。
 
-需要打开界面时，按应用 README 启动或复用本机服务。复用前核对应用身份与 `/api/inbox` 的 `sourcePath`，不能只凭端口或 HTTP 200 认定正确；端口被占用时使用空闲 loopback 端口。应用不可用则说明原因并使用 Markdown。在 Codex 中通过当前可用的打开工具呈现入口。
+需要打开界面时运行 `work inbox`，命令负责核对来源、复用或启动本机服务。参数和底层脚本入口见应用 README。应用不可用则说明原因并使用 Markdown；在 Codex 中也可通过当前打开工具呈现返回地址。
 
 现有应用提供 Markdown 的读取、显示和编辑，以及关联 Work 的阅读。本稿不假定它已经订阅全部 Work 变化、运行 Chief 或自动生成综合判断。没有这条链路时，Chief 在恢复及处理相关事项时核实来源、更新 Inbox，再由应用呈现；无法做到的自动新鲜度要明确说明。
 

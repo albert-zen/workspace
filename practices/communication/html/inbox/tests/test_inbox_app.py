@@ -81,6 +81,17 @@ class InboxAppTest(unittest.TestCase):
         self.assertEqual(result["absoluteSourcePath"], str((self.root / "personal/inbox/inbox.md").resolve()))
         self.assertEqual(result["sourcePath"], "personal/inbox/inbox.md")
 
+    def test_identity_for_launcher_is_read_only_and_checks_host(self):
+        before = self.server.inbox_path.read_bytes()
+        status, _, body = self.request('GET', '/api/identity')
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body), {
+            'application': 'work-inbox', 'workspace': str(self.root.resolve()),
+            'sourcePath': str(self.server.inbox_path)})
+        self.assertEqual(self.server.inbox_path.read_bytes(), before)
+        self.assertEqual(self.request('GET', '/api/identity?extra=1')[0], 404)
+        self.assertEqual(self.request('GET', '/api/identity', headers={'Host': 'other.example'})[0], 403)
+
     def update_payload(self, snapshot):
         return {"expectedRevision": snapshot["revision"], "sections": [
             {"status": section["status"], "items": [

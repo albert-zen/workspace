@@ -146,6 +146,10 @@ class InboxHandler(BaseHTTPRequestHandler):
             self._api_error(403, "unsafe_origin", "只允许通过当前本机 Inbox 地址读取。", action="从服务打印的本机地址重新打开页面。")
             return
         parsed = urlsplit(self.path)
+        if parsed.path == '/api/identity' and not parsed.query:
+            self._json(200, {'application': 'work-inbox', 'workspace': str(self.server.repo_root),
+                             'sourcePath': str(self.server.inbox_path)})
+            return
         if parsed.path == '/api/events' and not parsed.query:
             self._events()
             return

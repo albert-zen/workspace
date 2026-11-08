@@ -5,10 +5,12 @@
 运行时需要 Python 3.9 或以上；Git 资源管理使用各平台对应的文件锁，支持 Windows、macOS 和 Linux。从 workspace 根目录运行：
 
 ```text
-python practices/communication/html/inbox/scripts/inbox_app.py --repo-root /path/to/workspace
+python bin/work --root /path/to/workspace inbox
 ```
 
-默认地址是 `http://127.0.0.1:8765/`。使用 `--port <n>` 选择其他端口，或加 `--open` 请求系统浏览器打开。服务只监听 loopback；端口占用会打印可执行错误，不会切换到外网地址。
+默认请求浏览器打开 `http://127.0.0.1:8765/`。使用 `--port <n>` 指定优先端口（0 自动选择），`--no-open` 只打印地址。命令核对 `/api/identity` 中的应用身份、工作空间与 Inbox 来源路径后才复用已有服务；其他占用自动避开。首次打开可初始化空 Inbox，无需先创建事项。新服务在当前终端运行，Ctrl+C 结束；复用已有服务则立即返回。浏览器不可用时打印可手动打开的地址。
+
+服务只监听 loopback。底层脚本入口仍可使用 `python practices/communication/html/inbox/scripts/inbox_app.py --repo-root /path/to/workspace --open`，但需要已有 Inbox，且端口占用时直接报错。
 
 ## 产品边界
 

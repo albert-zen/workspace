@@ -16,6 +16,9 @@ def parser():
     p.add_argument('--root', type=Path, default=WORKSPACE_ROOT, help='保存记录的 workspace')
     p.add_argument('--json', action='store_true', help='输出可编程读取的 JSON')
     sub = p.add_subparsers(dest='command')
+    q = sub.add_parser('inbox', help='打开图形 Inbox；复用同一工作空间的服务或在当前终端启动')
+    q.add_argument('--port', type=int, default=8765, help='优先使用的本机端口；0 自动选择')
+    q.add_argument('--no-open', action='store_true', help='只打印地址，不自动打开浏览器')
     q = sub.add_parser('add', help='记录事项，无需预建 Work')
     q.add_argument('name'); q.add_argument('--summary')
     q = sub.add_parser('list', help='查看事项与状态'); q.add_argument('--all', action='store_true')
@@ -90,6 +93,9 @@ def main(argv=None):
         command = args.command
         if command is None:
             result = entry(store)
+        elif command == 'inbox':
+            from .inbox_ui import open_inbox
+            return open_inbox(store.root, args.port, not args.no_open, args.json)
         elif command == 'install':
             result = install(store, args.bin_dir)
         elif command == 'add':
