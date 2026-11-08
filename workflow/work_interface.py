@@ -36,6 +36,7 @@ def document_link(store, relative):
 
 def entry(store):
     return {'workspace': str(store.root), 'actions': [
+        ['打开图形 Inbox', command(store, 'inbox')],
         ['查看事项', command(store, 'list')],
         ['只记下来', command(store, 'add', '项目/事项', '--summary', '想做什么')],
         ['开始新工作', command(store, 'start', '项目/事项', '--summary', '目标和范围')],

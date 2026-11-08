@@ -3,11 +3,12 @@
 `bin/work` 是命令入口，本目录保存 CLI 和 Inbox 共用的实现。无需安装 Python 包或第三方依赖；需要 Python 3.9+，Git 工作树管理支持 Windows、macOS 和 Linux。
 
 - `work_cli.py`、`work_interface.py`：命令参数、自然语言输出和本机入口安装。
+- `inbox_ui.py`：`work inbox` 的浏览器入口、服务复用与前台启动。
 - `work_store.py`、`work_flow.py`：统一读写、并发保护、状态同步和收尾。
 - `work_plan.py`、`work_resources.py`：计划版本与依赖、工作树关联和安全清理。
 - `inbox_model.py`、`work_documents.py`：Inbox Markdown 与 Work 文档读写模型。
 
-Inbox 的 HTTP 服务和前端仍在 [`practices/communication/html/inbox/`](../practices/communication/html/inbox/README.md)，通过导入本包使用相同逻辑。本包不依赖该界面目录。
+Inbox 的 HTTP 服务和前端仍在 [`practices/communication/html/inbox/`](../practices/communication/html/inbox/README.md)，通过导入本包使用相同逻辑。`work inbox` 按需加载界面；其他 CLI 命令可独立运行。
 
 默认数据根目录是本代码所属的工作空间，`--root` 可指定其他数据目录。数据仍保存在 `personal/inbox/` 与 `agent-data/`，没有迁移数据或新增数据库。日常操作运行 `bin/work`；状态含义见[工具语义](../practices/collaboration/workflow.md)。
 

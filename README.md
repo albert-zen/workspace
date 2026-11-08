@@ -31,12 +31,10 @@ cd workspace
 ```
 
 ```sh
-python3 bin/work start '示例项目/第一件事' --summary '先确定一个可检查的成果，再执行并保存上下文。'
-python3 bin/work resume '示例项目/第一件事'
-python3 practices/communication/html/inbox/scripts/inbox_app.py --repo-root .
+python3 bin/work inbox
 ```
 
-然后打开终端给出的本地地址（默认 `http://127.0.0.1:8765/`）。第一次先运行 `start`，由工具初始化 Inbox 与存储；空目录直接启动 Inbox 不是完整初始化流程。需要结束服务器时在终端按 Ctrl+C。
+命令会初始化空 Inbox 并请求浏览器打开（默认 `http://127.0.0.1:8765/`）；没有创建示例事项。已有同一工作空间的服务时直接复用并返回，端口被其他应用或工作空间使用时自动选择空闲端口。新服务在当前终端运行，按 Ctrl+C 结束。只需地址时使用 `inbox --no-open`；指定数据目录用 `--root /path/to/data inbox`。
 
 Agent 从 `AGENTS.md` 进入；接手已有事项先 `resume`。普通问答无需登记。改正文用 `edit` / `save`，过程用 `record`，复杂计划才使用 `plan`。`finish` 表示业务完成并按保护规则收尾，不是“这一轮说完了”。命令选项以 `python3 bin/work <操作> --help` 为准。需要 Chief 时，再按[虚构全局索引模板](examples/portfolio.md)约定入口位置并写进工作空间说明。
 
@@ -44,7 +42,7 @@ Agent 从 `AGENTS.md` 进入；接手已有事项先 `resume`。普通问答无�
 
 ```sh
 python3 scripts/create_demo.py ./agent-data/demo
-python3 practices/communication/html/inbox/scripts/inbox_app.py --repo-root ./agent-data/demo --port 8767
+python3 bin/work --root ./agent-data/demo inbox --port 8767
 ```
 
 脚本拒绝覆盖非空目录，只创建虚构的读书会事项。任务正文和计划示例在 [examples/task-context.md](examples/task-context.md) 与 [examples/plan.md](examples/plan.md)。不读取原作者数据，不连接第三方业务系统，不发消息。
