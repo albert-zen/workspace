@@ -5,10 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
   <title>__WORKBENCH_TITLE__</title>
-  <style>__WORKBENCH_CSS__</style>
+  __WORKBENCH_CSS__
 </head>
 <body>
   <a class="skip-link" href="#main-content">跳到主要内容</a>
+
 
   <!-- Primer Octicons v19.33.0 (MIT), embedded as a sprite for offline rendering. -->
   <svg class="icon-sprite" aria-hidden="true">
@@ -30,108 +31,95 @@
     <symbol id="octicon-chevron-right" viewBox="0 0 16 16"><path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z"/></symbol>
   </svg>
 
-  <nav class="command-bar" id="command-bar" aria-label="工作台视图">
-    <button class="brand-button" id="show-problems" type="button">
-      <span class="brand-mark" id="brand-mark">W</span>
-      <span id="command-title">问题</span>
+  <nav class="topbar" id="command-bar" aria-label="审阅导航">
+    <button class="brand" id="show-themes" type="button">
+      <span class="brand-mark" id="brand-mark">T</span>
+      <span class="brand-copy"><strong>规则变更审阅</strong><span id="command-title">主题总览</span></span>
     </button>
-    <div class="command-context" id="command-context"></div>
-    <div class="command-actions">
-      <button class="command-button" id="toggle-report" type="button" aria-pressed="false"><svg class="octicon" aria-hidden="true"><use href="#octicon-info"></use></svg><span>信息</span></button>
-      <button class="command-button review-only" id="toggle-issue" type="button" aria-pressed="true"><svg class="octicon" aria-hidden="true"><use href="#octicon-issue"></use></svg><span>问题说明</span></button>
-      <button class="command-button review-only" id="toggle-files" type="button" aria-pressed="true"><svg class="octicon" aria-hidden="true"><use href="#octicon-file"></use></svg><span>文件</span></button>
-      <button class="command-button review-only" id="toggle-inspector" type="button" aria-pressed="true"><svg class="octicon" aria-hidden="true"><use href="#octicon-comment"></use></svg><span>批注</span></button>
-      <button class="command-button review-only" id="enter-zen" type="button"><svg class="octicon" aria-hidden="true"><use href="#octicon-screen-full"></use></svg><span>Zen</span></button>
+    <div class="triage" id="triage-strip" aria-label="注意力分配"></div>
+    <div class="top-actions">
+      <button class="top-button" id="toggle-theme-rail" type="button" aria-pressed="true" title="显示或收起主题栏">主题</button>
+      <button class="top-button" id="toggle-evidence" type="button" aria-pressed="false" title="显示或收起改动依据">依据</button>
+      <button class="top-button" id="enter-zen" type="button" title="只保留当前主题与改动"><svg class="octicon" aria-hidden="true"><use href="#octicon-screen-full"></use></svg><span>专注</span></button>
+      <button class="top-button" id="toggle-help" type="button" title="审阅方式与快捷键"><svg class="octicon" aria-hidden="true"><use href="#octicon-info"></use></svg><span>说明</span></button>
       <button class="icon-button" id="collapse-command" type="button" aria-label="收起工具栏"><svg class="octicon" aria-hidden="true"><use href="#octicon-chevron-up"></use></svg></button>
     </div>
   </nav>
-  <button class="restore-command" id="restore-command" type="button">展开工具</button>
-  <button class="review-back-to-problems" id="review-back-to-problems" type="button"><svg class="octicon" aria-hidden="true"><use href="#octicon-arrow-left"></use></svg><span>问题总览</span></button>
-
-  <header class="report-header" id="review-header"></header>
+  <button class="restore-command" id="restore-command" type="button">展开工具栏</button>
 
   <main id="main-content">
-    <section class="overview-screen" id="overview-screen" aria-labelledby="problem-map-title">
-      <div class="problem-map">
-        <header class="problem-map-heading"><h1 id="problem-map-title" tabindex="-1">问题总览</h1><p>选择一个问题，核对对应文件与实际改动。</p></header>
-        <div class="problem-branches" id="problem-list" aria-label="问题列表"></div>
+    <section class="overview-screen" id="overview-screen" aria-labelledby="overview-title">
+      <div class="overview-main">
+        <header class="overview-head">
+          <p class="eyebrow" id="overview-bundle"></p>
+          <h1 id="overview-title" tabindex="-1">按主题审阅这次规则变更</h1>
+          <p class="overview-summary" id="overview-summary"></p>
+          <div class="overview-summary-strip" id="overview-summary-strip"></div>
+        </header>
+        <div class="theme-grid" id="theme-grid"></div>
+        <p class="empty-note" id="overview-empty" hidden>当前筛选下没有主题。</p>
       </div>
-      <aside class="problem-preview" id="problem-preview" aria-live="polite"></aside>
+      <aside class="overview-preview" id="overview-preview"></aside>
     </section>
 
     <section class="review-screen" id="review-screen" hidden>
-      <section class="issue-strip" id="issue-strip">
-        <div class="issue-strip-copy" id="issue-strip-copy"></div>
-        <button class="icon-button" id="collapse-issue" type="button" aria-label="收起问题说明"><svg class="octicon" aria-hidden="true"><use href="#octicon-chevron-up"></use></svg></button>
+      <button class="edge-restore edge-themes" id="restore-theme-rail" type="button"><svg class="octicon" aria-hidden="true"><use href="#octicon-chevron-right"></use></svg><span>主题</span></button>
+      <aside class="theme-rail" id="theme-rail" aria-label="按主题审阅">
+        <div class="rail-head">
+          <h2>改动导航</h2>
+          <button class="icon-button" id="collapse-theme-rail" type="button" data-action="collapse-theme-rail" aria-label="收起主题栏"><svg class="octicon" aria-hidden="true"><use href="#octicon-chevron-left"></use></svg></button>
+        </div>
+        <div class="filter-row" id="theme-filter" role="group" aria-label="按状态筛选主题"></div>
+        <div class="theme-list" id="theme-list"></div>
+        <div class="rail-blocks" id="rail-blocks"></div>
+      </aside>
+
+      <section class="review-main" id="review-surface" tabindex="-1" aria-label="主题与改动">
+        <header class="file-bar">
+          <div id="file-theme-title"></div>
+          <nav class="file-tabs" id="file-tabs" aria-label="主题涉及的文件"></nav>
+          <div id="theme-actions"></div>
+          <details id="theme-decisions"><summary>批量决定</summary><div id="theme-decision-options"></div></details>
+        </header>
+        <div class="block-list" id="block-list"></div>
       </section>
-      <button class="context-restore" id="restore-issue" type="button"><span>显示问题说明</span><svg class="octicon" aria-hidden="true"><use href="#octicon-chevron-down"></use></svg></button>
 
-      <div class="workbench" id="workbench">
-        <button class="edge-restore edge-restore-files" id="restore-files" type="button"><span>文件</span><svg class="octicon" aria-hidden="true"><use href="#octicon-chevron-right"></use></svg></button>
-        <aside class="files-panel" id="files-panel" aria-label="变更文件">
-          <div class="panel-heading">
-            <div><p class="eyebrow">Changed files</p><h2>文件</h2></div>
-            <div class="panel-heading-actions">
-              <span id="file-count" class="count-badge"></span>
-              <button class="icon-button panel-collapse" id="collapse-files" type="button" aria-label="收起文件栏"><svg class="octicon" aria-hidden="true"><use href="#octicon-chevron-left"></use></svg></button>
-            </div>
-          </div>
-          <nav id="file-list" class="file-list" aria-label="切换源文件"></nav>
-        </aside>
-
-        <section class="review-panel" id="review-surface" tabindex="-1">
-          <div class="review-toolbar">
-            <div class="file-identity"><span id="file-status" class="file-status"></span><strong id="current-path" class="current-path"></strong></div>
-            <div class="toolbar-actions">
-              <div id="view-switcher" class="segmented" aria-label="审阅视图"></div>
-              <button class="quiet-button compact-button" id="edit-toggle" type="button">编辑源文件</button>
-              <button class="quiet-button compact-button" id="accept-file" type="button"></button>
-            </div>
-          </div>
-          <div id="file-intent" class="file-intent"></div>
-          <div id="content-surface" class="content-surface" aria-live="polite"></div>
-        </section>
-
-        <aside class="inspector-panel" id="inspector-panel" aria-label="改动依据与批注">
-          <div class="inspector-collapse-row">
-            <button class="icon-button panel-collapse" id="collapse-inspector" type="button" aria-label="收起批注栏"><svg class="octicon" aria-hidden="true"><use href="#octicon-chevron-right"></use></svg></button>
-          </div>
-          <section id="context-panel" class="inspector-section"></section>
-          <section class="inspector-section annotations-section">
-            <div class="section-heading compact">
-              <div><p class="eyebrow">Annotation</p><h2>针对这段改</h2></div>
-              <span class="count-badge" id="comment-count">0</span>
-            </div>
-            <div id="anchor-preview" class="anchor-preview"></div>
-            <form id="comment-form" class="comment-form">
-              <label for="comment-body">批注意见</label>
-              <textarea id="comment-body" rows="3" placeholder="先点一行，或选中一句话，再写希望怎么改"></textarea>
-              <button class="secondary-button" type="submit">添加批注</button>
-            </form>
-            <div id="comment-list" class="comment-list"></div>
-          </section>
-        </aside>
-        <button class="edge-restore edge-restore-inspector" id="restore-inspector" type="button"><svg class="octicon" aria-hidden="true"><use href="#octicon-chevron-left"></use></svg><span>批注</span></button>
-      </div>
+      <aside class="evidence-rail" id="evidence-rail" aria-label="案例参考与改动依据">
+        <div class="rail-head">
+          <h2>改动依据</h2>
+          <button class="icon-button" id="collapse-evidence" type="button" data-action="collapse-evidence" aria-label="收起案例栏"><svg class="octicon" aria-hidden="true"><use href="#octicon-chevron-right"></use></svg></button>
+        </div>
+        <div id="evidence-content"></div>
+      </aside>
+      <button class="edge-restore edge-evidence" id="restore-evidence" type="button"><svg class="octicon" aria-hidden="true"><use href="#octicon-chevron-left"></use></svg><span>依据</span></button>
     </section>
   </main>
 
+  <div id="live-status" class="live-status" hidden>
+    <span id="save-status" role="status"></span>
+    <button class="tiny-button" id="retry-save" type="button" hidden>重试保存</button>
+    <button class="tiny-button" id="recover-draft" type="button" hidden>下载本页草稿并载入最新版本</button>
+    <button class="tiny-button" id="last-apply" type="button" hidden>查看应用记录</button>
+  </div>
   <footer class="action-bar" id="action-bar" aria-label="审阅操作">
     <div class="review-state" id="review-state"></div>
     <div class="action-group">
+      <button class="quiet-button" id="download-feedback" type="button">下载反馈</button>
       <button class="quiet-button" id="download-patch" type="button"><svg class="octicon" aria-hidden="true"><use href="#octicon-download"></use></svg><span>下载 Patch</span></button>
       <button class="secondary-button" id="copy-feedback" type="button"><svg class="octicon" aria-hidden="true"><use href="#octicon-copy"></use></svg><span>复制反馈</span></button>
+      <button class="quiet-button" id="check-only" type="button" hidden>仅检查</button>
       <button class="primary-button" id="prepare-apply" type="button"><svg class="octicon" aria-hidden="true"><use href="#octicon-check-circle"></use></svg><span>准备应用</span></button>
     </div>
   </footer>
 
-  <button class="zen-exit" id="zen-exit" type="button">退出 Zen</button>
+  <button class="zen-exit" id="zen-exit" type="button">退出专注</button>
+  <button class="selection-bubble" id="selection-bubble" type="button" hidden>批注选中文字</button>
 
-  <dialog id="apply-dialog" class="apply-dialog" aria-labelledby="apply-title">
+  <dialog id="apply-dialog" class="dialog apply-dialog" aria-labelledby="apply-title">
     <form method="dialog"><button class="dialog-close" aria-label="关闭" value="cancel"><svg class="octicon" aria-hidden="true"><use href="#octicon-x"></use></svg></button></form>
-    <p class="eyebrow">Explicit adapter handoff</p>
+    <p class="eyebrow">Explicit handoff</p>
     <h2 id="apply-title">准备交给 Agent 应用</h2>
-    <p>HTML 不会直接写回工作空间。下载响应包后，由 Agent 先检查目标是否 stale，再显式应用。</p>
+    <p class="dialog-lead">页面不会直接写回工作空间。先下载响应包，再由宿主用原 bundle 检查并应用；任一文件 stale 时整批不写。</p>
     <div id="apply-preview" class="apply-preview"></div>
     <div class="dialog-actions">
       <button class="secondary-button" id="download-response" type="button">下载响应包</button>
@@ -139,9 +127,24 @@
     </div>
   </dialog>
 
+  <dialog id="help-dialog" class="dialog help-dialog" aria-labelledby="help-title">
+    <form method="dialog"><button class="dialog-close" aria-label="关闭" value="cancel"><svg class="octicon" aria-hidden="true"><use href="#octicon-x"></use></svg></button></form>
+    <p class="eyebrow">How to review</p>
+    <h2 id="help-title">怎样审阅</h2>
+    <ol class="help-list">
+      <li><strong>先看主题。</strong>左侧按主题列出这次变更，颜色和排序优先展示仍待你决定的部分。</li>
+      <li><strong>按块决定。</strong>每个主题下的 Markdown 场景或源码块都有“接受 / 不接受 / 待定”。只有接受的内容会进入最终文件。</li>
+      <li><strong>按行批注。</strong>悬停行号点“+”，或选中一句话后点浮出的“批注选中文字”。批注随块保存，并在响应包里回传。</li>
+      <li><strong>手改。</strong>“手改”只改当前块；保存后该块回到待定，需要你重新接受才会写入。</li>
+      <li><strong>看案例。</strong>右侧列出这个主题引用的真实案例、反向对照和证据边界；没有任何来源也会如实写明。</li>
+      <li><strong>准备应用。</strong>仍有待定块时按钮会停用；可逐个决定，或把剩余待定明确设为不接受。</li>
+    </ol>
+    <p class="help-keys"><kbd>Alt</kbd>+<kbd>J</kbd>/<kbd>K</kbd> 下一块/上一块 · <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>J</kbd>/<kbd>K</kbd> 下一主题/上一主题 · <kbd>Esc</kbd> 退出编辑、批注或专注</p>
+  </dialog>
+
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <noscript><div class="noscript-note">核心内容仍可阅读；问题预览、切换视图、编辑、批注和导出需要 JavaScript。</div>__WORKBENCH_FALLBACK__</noscript>
+  <noscript><div class="noscript-note">核心内容仍可阅读；主题筛选、按块决定、按行批注、手改与导出需要 JavaScript。</div>__WORKBENCH_FALLBACK__</noscript>
   <script id="review-data" type="application/json">__WORKBENCH_DATA__</script>
-  <script>__WORKBENCH_JS__</script>
+  __WORKBENCH_JS__
 </body>
 </html>

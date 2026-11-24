@@ -25,9 +25,10 @@ class WorkStorageTests(unittest.TestCase):
         self.assertLess(sum(p.stat().st_size for p in receipts), 20000)
         latest = max(receipts, key=lambda p: p.stat().st_mtime_ns)
         receipt = json.loads(latest.read_text())
-        state = next(x for x in receipt['writes'] if x['path'].endswith('state.json'))
-        raw = (self.internal / 'state.json').read_bytes()
-        self.assertEqual(state['after'], {'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()})
+        work_entry = next(x for x in receipt['writes'] if x['path'].endswith('Large.md'))
+        raw = (self.root / work_entry['path']).read_bytes()
+        self.assertEqual(work_entry['after'], {'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()})
+        self.assertEqual(receipt['db']['path'], 'agent-data/workflow/work.db')
         self.assertEqual(self.store.history('demo/Large')['events'][-1]['text'], text)
         self.assertFalse((self.internal / 'pending.json').exists())
 
@@ -64,8 +65,8 @@ class WorkStorageTests(unittest.TestCase):
         self.store.start('demo/Conflict', summary='Original')
         real_replace = os.replace
         def interrupt(src, dst):
-            if Path(dst).name == 'state.json':
-                raise OSError('state write interrupted')
+            if Path(dst).parent.name == 'events':
+                raise OSError('event write interrupted')
             return real_replace(src, dst)
         with patch('os.replace', side_effect=interrupt):
             with self.assertRaises(OSError):

@@ -94,22 +94,22 @@ class WorkStoreTests(unittest.TestCase):
         self.store.add('demo/One')
         import os
         real_replace = os.replace
-        def fail_state(src, dst):
-            if Path(dst).name == 'state.json':
+        def fail_event(src, dst):
+            if Path(dst).parent.name == 'events':
                 raise OSError('simulated disk failure')
             return real_replace(src, dst)
-        with patch('os.replace', side_effect=fail_state):
+        with patch('os.replace', side_effect=fail_event):
             with self.assertRaises(OSError): self.store.start('demo/One')
         with self.assertRaises(InboxError): self.store.resume('demo/One')
         self.store.recover()
         self.assertEqual(self.store.resume('demo/One')['lifecycleStatus'], 'active')
-        with patch('os.replace', side_effect=fail_state):
-            with self.assertRaises(OSError): self.store.rename('demo/One', 'demo/New')
-        inbox = self.root / 'personal/inbox/inbox.md'
-        external = inbox.read_text().replace('demo/New', 'demo/External')
-        inbox.write_text(external)
+        with patch('os.replace', side_effect=fail_event):
+            with self.assertRaises(OSError): self.store.record_event('demo/One', 'New progress')
+        work = self.root / self.store.resume('demo/One')['workPath'] if False else self.root / 'agent-data/projects/demo/work/active/One.md'
+        external = work.read_text() + '\nExternal manual edit\n'
+        work.write_text(external)
         with self.assertRaises(InboxError): self.store.recover()
-        self.assertEqual(inbox.read_text(), external)
+        self.assertEqual(work.read_text(), external)
 
     def test_real_git_start_finish_and_dirty_retry(self):
         repo = self.root / 'repo'; repo.mkdir()
@@ -191,19 +191,20 @@ class WorkStoreTests(unittest.TestCase):
         self.assertEqual(self.store.resume('demo/Tree')['lifecycleStatus'], 'active')
 
     def test_editor_change_during_write_preparation_is_preserved(self):
-        self.store.add('demo/One', summary='original')
-        revision = self.store.resume('demo/One')['revision']
+        self.store.start('demo/One', summary='original')
+        view = self.store.resume('demo/One')
+        revision = view['revision']
+        work = self.root / view['workPath']
         original_write = self.store._write
-        inbox = self.root / 'personal/inbox/inbox.md'
         def intervening_editor(path, value, **kwargs):
-            if path == inbox:
-                inbox.write_text(inbox.read_text().replace('original', 'EXTERNAL'))
+            if path == work:
+                work.write_text(work.read_text().replace('original', 'EXTERNAL'))
             return original_write(path, value, **kwargs)
         with patch.object(self.store, '_write', side_effect=intervening_editor):
             with self.assertRaises(InboxError):
-                self.store.update('demo/One', summary='ours', expected_revision=revision)
-        self.assertIn('EXTERNAL', inbox.read_text())
-        self.assertNotIn(' — ours', inbox.read_text())
+                self.store.update('demo/One', description='ours', expected_revision=revision)
+        self.assertIn('EXTERNAL', work.read_text())
+        self.assertNotIn('ours', work.read_text())
 
     def test_cli_plain_output_hides_internal_metadata(self):
         self.store.add('demo/One'); self.store.start('demo/One')

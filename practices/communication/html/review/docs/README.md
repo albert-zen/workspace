@@ -2,14 +2,19 @@
 
 公开版本不包含私人历史审阅截图。使用公开虚构示例生成当前界面；截图验证保存在发布检查材料中。
 
-## Visual direction
+## 视觉方向
 
-The workbench uses deep teal navigation, a blue canvas, white reading surfaces and teal selection markers. Blue evidence headers, muted violet context labels and warm apricot annotation accents preserve color hierarchy with restrained surface coverage. Problem navigation uses aligned rows instead of stacked cards. Problem descriptions remain visible in the overview; the actual file and hunk stay adjacent in the preview. Local Chinese sans-serif fallbacks improve reading without network dependencies. The full-review toolbar separates the file path from actions. On narrow screens the top actions scroll within their own group, preserving the page width and access to every control.
+深青色导航和侧栏承担结构，暖纸色画布承担阅读，白色卡片承担决定。颜色只表达语义：琥珀色是待决定，绿色是已接受，红色是不接受，蓝色是部分接受；案例角色使用另一组低饱和色，避免与决定状态混淆。标题、正文和 diff 行形成三级层次：主题标题最大，块标题其次，行内容保持等宽或 Markdown 阅读字号。
 
-Generate a new offline report from a fixed bundle to inspect the current stylesheet; existing generated HTML embeds its original CSS and must be rendered again to receive these changes.
+决定改变颜色和进度，不改变主题顺序。进入审阅时按注意力排序一次，之后卡片保持稳定，避免在连续决定时从鼠标下跳走。
 
-### 文件快览与动效
+## 交互与状态
 
-文件列表悬停或键盘聚焦可快览完整路径、增删数量、关联问题和前三行增删内容，不改变当前审阅文件；点击「⋯」可固定快览，触屏同样可用。Esc、外部点击或再次点击入口关闭；鼠标移入快览后仍可阅读。控件及内容切换加入轻量过渡，并尊重减少动态效果偏好；快览全部从内嵌bundle与当前编辑状态读取，保持离线单文件。
-
-文件快览及通用浮层样式复用 [共享组件层](../../shared/README.md)。`render` 将共享源码与页面源码依次内联，生成结果保持离线单文件；修改共享组件后须重新生成已有审阅 HTML。
+- 本机应用模式（`workbench.py serve`）在底部栏展示自动保存状态、重试、双窗口冲突草稿导出与一键「检查并应用」；离线 HTML 模式保留导出响应包流程。
+- 主题总览、主题审阅、浏览器 Back 和页面内返回共用同一套路由。
+- 主题栏、依据栏和工具栏都可收起。工具栏隐藏时，用边缘按钮恢复侧栏。
+- 专注模式只保留当前主题和改动，保留编辑与审阅状态。
+- `Alt`+`J`/`K` 切换块，`Alt`+`Shift`+`J`/`K` 切换主题，`Esc` 退出编辑、批注或专注。
+- 手改只替换当前块；保存后该块回到待定，批注和决定标记为需要重新确认，可撤销上次手改。
+- 页面暴露只读的 `window.__workbenchDebug`，用于离线验收时读取导出响应、块与决定；它不写文件、不发请求。
+- 样式与通用控件复用 [共享组件层](../../shared/README.md)；修改共享组件后需重新生成离线 HTML。

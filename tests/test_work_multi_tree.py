@@ -51,23 +51,25 @@ class MultipleWorktreesTests(unittest.TestCase):
         resource = first['resources'][0]
         repeated = self.store.add_worktree(self.item, tree_name='开发')
         self.assertEqual(repeated['resources'][0]['ownership_token'], resource['ownership_token'])
-        original = self.store.state_path.read_bytes()
+        from workflow import work_db
+        original = work_db.read_version_token(self.store.db_path)
         self.git('commit', '--allow-empty', '-m', 'another')
         for options in ({'path': self.root / 'elsewhere'}, {'branch': 'codex/other'}, {'at': 'HEAD'}, {'base': 'HEAD~1'}):
             with self.assertRaises(Exception):
                 self.store.add_worktree(self.item, tree_name='开发', **options)
-            self.assertEqual(self.store.state_path.read_bytes(), original)
+            self.assertEqual(work_db.read_version_token(self.store.db_path), original)
         self.assertTrue(Path(resource['path']).is_dir())
 
     def test_start_shortcut_and_legacy_tree_use_same_development_name(self):
+        from workflow import work_db
         item = self.store.start(self.item, worktree=True, repo=self.repo)
         first = item['resources'][0]
         self.assertEqual(Path(first['path']).parent, self.store.root / 'dev' / 'worktrees' / self.repo.name)
         self.assertEqual(first['name'], '开发')
         # Simulate a record made by the earlier CLI, which did not store a name.
-        state = json.loads(self.store.state_path.read_text())
+        state, doc, _, _ = work_db.load_state_and_doc(self.store.db_path)
         state['items'][item['id']]['resources'][0].pop('name')
-        self.store.state_path.write_text(json.dumps(state))
+        work_db.save_state_and_doc(self.store.db_path, state, doc)
         same = self.store.add_worktree(self.item, tree_name='开发')['resources'][0]
         self.assertEqual(same['ownership_token'], first['ownership_token'])
         self.store.add_worktree(self.item, tree_name='验收', at=self.initial)

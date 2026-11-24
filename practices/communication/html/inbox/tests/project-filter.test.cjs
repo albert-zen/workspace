@@ -2,24 +2,24 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const projects = require('../assets/inbox.js');
 const entry=(project,state='active')=>({workPath:`agent-data/projects/${project}/work/${state}/task.md`});
-const sections=[{status:'In progress',items:[entry('demo'),{}]},{status:'Done',items:[entry('demo','archive'),entry('workspace')]}];
+const sections=[{status:'In progress',items:[entry('zen'),{}]},{status:'Done',items:[entry('zen','archive'),entry('workspace')]}];
 test('derives project from active/archive paths without reading documents',()=>{
- assert.equal(projects.key(entry('demo','archive')),'demo');
- assert.equal(projects.key(entry('team/demo')),'team/demo');
+ assert.equal(projects.key(entry('zen','archive')),'zen');
+ assert.equal(projects.key(entry('team/zen')),'team/zen');
  assert.equal(projects.key({}), '');
- assert.equal(projects.key({workPath:'elsewhere/demo.md'}), '');
+ assert.equal(projects.key({workPath:'elsewhere/zen.md'}), '');
 });
 test('registered semantic names keep project filters useful before Work exists',()=>{
  assert.equal(projects.key({semanticName:'示例项目/读取团队文档'}),'示例项目');
- assert.equal(projects.key({semanticName:'demo/模块/兼容检查',workPath:'agent-data/projects/demo/work/active/task.md'}),'demo');
- assert.equal(projects.key({semanticName:'inbox/模块/兼容检查'}),'inbox');
+ assert.equal(projects.key({semanticName:'zen/RTK/SlashCompat',workPath:'agent-data/projects/zen/work/active/task.md'}),'zen');
+ assert.equal(projects.key({semanticName:'inbox/RTK/SlashCompat'}),'inbox');
 });
 test('options count every status including collapsed Done and unclassified',()=>{
- assert.deepEqual(Object.fromEntries(projects.options(sections)),{'':1,workspace:1,demo:2});
+ assert.deepEqual(Object.fromEntries(projects.options(sections)),{'':1,workspace:1,zen:2});
 });
 test('filter preserves full source for whole-document saves',()=>{
  const before=JSON.stringify(sections);
- assert.deepEqual(projects.filter(sections,'demo').map(s=>s.items.length),[1,1]);
+ assert.deepEqual(projects.filter(sections,'zen').map(s=>s.items.length),[1,1]);
  assert.deepEqual(projects.filter(sections,'').map(s=>s.items.length),[1,0]);
  assert.deepEqual(projects.filter(sections,'missing').map(s=>s.items.length),[0,0]);
  assert.equal(JSON.stringify(sections),before);

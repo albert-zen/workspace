@@ -47,7 +47,8 @@ class InboxServer(ThreadingHTTPServer):
 
     def __init__(self, address: tuple[str, int], handler, repo_root: Path) -> None:
         self.repo_root = repo_root.resolve()
-        self.inbox_path = self.repo_root / "personal" / "inbox" / "inbox.md"
+        self.db_path = self.repo_root / "agent-data" / "workflow" / "work.db"
+        self.inbox_path = self.db_path
         self.assets_root = Path(__file__).resolve().parent.parent / "assets"
         self.shared_root = self.assets_root.parent.parent / "shared"
         self.work_documents = WorkDocuments(self.repo_root)
@@ -146,6 +147,10 @@ class InboxHandler(BaseHTTPRequestHandler):
             self._api_error(403, "unsafe_origin", "只允许通过当前本机 Inbox 地址读取。", action="从服务打印的本机地址重新打开页面。")
             return
         parsed = urlsplit(self.path)
+        if parsed.path == '/api/identity' and not parsed.query:
+            self._json(200, {'application': 'work-inbox', 'workspace': str(self.server.repo_root),
+                             'sourcePath': str(self.server.inbox_path)})
+            return
         if parsed.path == '/api/events' and not parsed.query:
             self._events()
             return
@@ -235,9 +240,7 @@ class InboxHandler(BaseHTTPRequestHandler):
 
 def create_server(repo_root: Path, port: int = 8765) -> InboxServer:
     root = repo_root.resolve()
-    inbox = root / "personal" / "inbox" / "inbox.md"
-    if not inbox.is_file():
-        raise InboxError("找不到 personal/inbox/inbox.md。", code="read_failed", action="使用 --repo-root 指向包含 Personal Inbox 的 workspace。")
+    WorkStore(root).snapshot()
     return InboxServer(("127.0.0.1", port), InboxHandler, root)
 
 

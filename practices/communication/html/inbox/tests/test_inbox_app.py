@@ -4,6 +4,7 @@ import http.client
 import json
 import os
 from pathlib import Path
+import shutil
 import shlex
 import subprocess
 import sys
@@ -78,8 +79,20 @@ class InboxAppTest(unittest.TestCase):
         status, _, body = self.request("GET", "/api/inbox")
         self.assertEqual(status, 200)
         result = json.loads(body)
-        self.assertEqual(result["absoluteSourcePath"], str((self.root / "personal/inbox/inbox.md").resolve()))
-        self.assertEqual(result["sourcePath"], "personal/inbox/inbox.md")
+        self.assertEqual(result["absoluteSourcePath"], str((self.root / "agent-data/workflow/work.db").resolve()))
+        self.assertEqual(result["sourcePath"], "agent-data/workflow/work.db")
+
+    def test_identity_for_launcher_is_read_only_and_checks_host(self):
+        from workflow.work_db import read_version_token
+        before = read_version_token(self.server.db_path)
+        status, _, body = self.request('GET', '/api/identity')
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body), {
+            'application': 'work-inbox', 'workspace': str(self.root.resolve()),
+            'sourcePath': str(self.server.db_path)})
+        self.assertEqual(read_version_token(self.server.db_path), before)
+        self.assertEqual(self.request('GET', '/api/identity?extra=1')[0], 404)
+        self.assertEqual(self.request('GET', '/api/identity', headers={'Host': 'other.example'})[0], 403)
 
     def update_payload(self, snapshot):
         return {"expectedRevision": snapshot["revision"], "sections": [
@@ -109,7 +122,10 @@ class InboxAppTest(unittest.TestCase):
         command = shlex.split(reloaded["handoffCommand"])
         if os.name == 'nt':
             command = command[1:]
-        self.assertTrue(Path(command[0]).is_absolute())
+        if command[0] == "work":
+            self.assertEqual(Path(shutil.which("work")).resolve(), SCRIPTS.parents[4] / "bin/work")
+        else:
+            self.assertTrue(Path(command[0]).is_absolute())
         self.assertEqual(command[-2:], ["resume", reloaded["semanticName"]])
         self.assertEqual(command[command.index("--root") + 1], str(self.root.resolve()))
 
@@ -125,7 +141,9 @@ class InboxAppTest(unittest.TestCase):
         snapshot = json.loads(body)
         expected = ['demo/Pinned', 'demo/Z first', 'demo/A second']
         self.assertEqual([i['title'] for i in snapshot['sections'][1]['items']], expected)
-        self.assertIn('<!-- pinned -->', (self.root / 'personal/inbox/inbox.md').read_text())
+        self.assertTrue(snapshot['sections'][1]['items'][0]['pinned'])
+        # Exported Markdown still includes the pinned marker for human snapshots.
+        self.assertIn('<!-- pinned -->', self.server.work_store.export_inbox_markdown())
         # A legacy browser edits without knowing the optional pin field.
         status, _, body = self.request('PUT', '/api/inbox', self.update_payload(snapshot), headers)
         self.assertEqual(status, 200, body)
@@ -245,9 +263,9 @@ class InboxAppTest(unittest.TestCase):
             create_server(self.root, self.port)
 
     def test_personal_inbox_contains_no_checked_in_html(self) -> None:
-        tracked_personal = Path(__file__).resolve().parents[5] / "personal" / "inbox"
-        self.assertTrue((tracked_personal / "schema.md").is_file())
-        self.assertFalse(list(tracked_personal.glob("*.html")))  # Personal data may be absent in a clean checkout.
+        tracked_personal = Path(__file__).resolve().parents[5] / "personal"
+        self.assertTrue((tracked_personal / "personal.md").is_file())
+        self.assertFalse(list(tracked_personal.rglob("*.html")))
 
     def test_ui_uses_the_quiet_ledger_structure(self) -> None:
         markup = (ASSETS / "index.html").read_text(encoding="utf-8")

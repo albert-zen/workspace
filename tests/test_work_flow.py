@@ -143,10 +143,11 @@ class SemanticFlowTests(unittest.TestCase):
         self.assertNotIn('待收尾', context_text(restored['document'])[0])
 
     def test_legacy_outcome_is_retired_on_reopen(self):
+        from workflow import work_db
         item = self.store.finish(self.name, result='Old result')
-        state = json.loads(self.store.state_path.read_text())
+        state, doc, _, _ = work_db.load_state_and_doc(self.store.db_path)
         state['items'][item['id']]['outcomeHeading'] = '交付与收尾 · demo/Work'
-        self.store.state_path.write_text(json.dumps(state))
+        work_db.save_state_and_doc(self.store.db_path, state, doc)
         path = self.root / item['workPath']
         path.write_text(path.read_text() + '\n## 交付与收尾 · demo/Work\n\nOld release evidence\n')
         self.store.transition(self.name, 'reopen')
@@ -196,11 +197,12 @@ class SemanticFlowTests(unittest.TestCase):
 
     def make_legacy(self):
         import shutil
+        from workflow import work_db
         item = self.store.resume(self.name)
-        state = json.loads(self.store.state_path.read_text())
+        state, doc, _, _ = work_db.load_state_and_doc(self.store.db_path)
         for key in ['lastProgress', 'eventCount']:
             state['items'][item['id']].pop(key, None)
-        self.store.state_path.write_text(json.dumps(state))
+        work_db.save_state_and_doc(self.store.db_path, state, doc)
         shutil.rmtree(self.store.internal / 'items' / item['id'])
         (self.root / item['workPath']).write_text('# Legacy\n\n## 事项说明\n\nGoal\n\n## 当前推进\n\nLEGACY PROGRESS\n')
 
@@ -310,7 +312,8 @@ class SemanticFlowTests(unittest.TestCase):
         self.make_legacy()
         path = self.root / self.store.resume(self.name)['workPath']
         raw = '\n\n    indented code  \n\n\n'
-        path.write_text(path.read_text() + '\n## 当前计划\n' + raw, newline='')
+        with path.open('w', encoding='utf-8', newline='') as handle:
+            handle.write(path.read_text(encoding='utf-8') + '\n## 当前计划\n' + raw)
         self.save_plan('New plan\n')
         self.assertEqual(self.store.plan_show(self.name, version=1)['plan'], raw)
 

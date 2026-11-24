@@ -36,6 +36,7 @@ def document_link(store, relative):
 
 def entry(store):
     return {'workspace': str(store.root), 'actions': [
+        ['打开图形 Inbox', command(store, 'inbox')],
         ['查看事项', command(store, 'list')],
         ['只记下来', command(store, 'add', '项目/事项', '--summary', '想做什么')],
         ['开始新工作', command(store, 'start', '项目/事项', '--summary', '目标和范围')],
@@ -44,8 +45,9 @@ def entry(store):
         ['编辑当前上下文', command(store, 'edit', '项目/事项')],
         ['编写或修改计划', command(store, 'plan', 'edit', '项目/事项')],
         ['记录进展', command(store, 'record', '项目/事项', '--text', '当前进展与证据')],
+        ['记录原始意图', command(store, 'intent', 'add', '项目/事项', '--text', '用户原话或关键意图')],
         ['完成并收尾', command(store, 'finish', '项目/事项', '--result', '实际结果与证据入口')],
-    ], 'guide': document_link(store, 'practices/collaboration/workflow.md')}
+    ], 'guide': document_link(store, 'practices/collaboration.md')}
 
 
 def install(store, directory):
@@ -113,6 +115,23 @@ def render(store, args, result):
                           '当前 PATH 不含该目录；可直接运行上面的绝对路径，或将该目录加入 PATH。'])
     if isinstance(result, list):
         return '\n'.join(f"{r['name']}  [{LABELS.get(r['lifecycleStatus'], r['lifecycleStatus'])}]  {r.get('summary', '')}" for r in result) or '当前没有事项。'
+    if args.command == 'intent':
+        if args.intent_action == 'add':
+            target = result.get('name') or result['project']
+            action = '已建立并记录原始意图' if result.get('created') else '已追加原始意图'
+            show_cmd = (command(store, 'intent', 'show', result['name']) if result.get('name')
+                        else command(store, 'intent', 'show', '--project', result['project']))
+            return '\n'.join([f'{target}：{action}。', '文件：' + result['absolutePath'], '查看：' + show_cmd])
+        target = result.get('name') or result['project']
+        intents = result.get('intents') or []
+        if not intents:
+            add_cmd = (command(store, 'intent', 'add', result['name'], '--text', '用户原始意图') if result.get('name')
+                       else command(store, 'intent', 'add', '--project', result['project'], '--text', '用户原始意图'))
+            return '\n'.join([f'{target}：暂无原始意图记录。', '添加：' + add_cmd])
+        parts = [target]
+        for item in intents:
+            parts.extend(['', f"[{item['label']}] {item['absolutePath']}", item['text'].rstrip()])
+        return '\n'.join(parts)
     if 'name' not in result:
         return '文件操作已恢复。\n查看事项：' + command(store, 'list')
 
@@ -183,6 +202,10 @@ def render(store, args, result):
                         if path.is_file():
                             rules.add(str(path))
         lines.extend('项目入口：' + path for path in sorted(rules))
+        for item in result.get('intents', []):
+            lines.append(item['label'] + '：' + item['absolutePath'])
+        if result.get('intents'):
+            lines.append('查看原始意图：' + command(store, 'intent', 'show', name))
         if result.get('workPath') and not result.get('documentMissing'):
             lines.append('需要更新上下文时：' + command(store, 'edit', name))
         elif not result.get('workPath') and result.get('lifecycleStatus') not in {'completed', 'cancelled'}:
@@ -191,7 +214,7 @@ def render(store, args, result):
             lines.append('重复开始会复用已有事项及其上下文；--summary 仅用于新建。')
     elif args.command == 'edit':
         lines.append('编辑上面的副本后保存：' + command(store, 'save', result['draftPath']))
-        lines.append('需要整理上下文时：' + document_link(store, 'practices/collaboration/context.md'))
+        lines.append('需要整理上下文时：' + document_link(store, 'practices/collaboration.md'))
     elif args.command == 'add':
         lines.append('需要开始时：' + command(store, 'start', name))
     elif args.command == 'finish':

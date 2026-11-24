@@ -2,6 +2,69 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/html-review-workbench/review-bundle.schema.json",
   "title": "HTML review workbench bundle",
+  "$defs": {
+    "reviewBlock": {
+      "type": "object",
+      "required": ["id", "filePath", "title", "reason", "claimId", "evidenceIds", "oldRange", "newRange"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "filePath": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string", "minLength": 1 },
+        "effect": { "type": "string" },
+        "claimId": { "type": "string", "minLength": 1 },
+        "evidenceIds": { "type": "array", "items": { "type": "string" } },
+        "dependsOn": { "type": "array", "items": { "type": "string" } },
+        "oldRange": { "$ref": "#/$defs/lineRange" },
+        "newRange": { "$ref": "#/$defs/lineRange" }
+      },
+      "additionalProperties": false
+    },
+    "lineRange": {
+      "type": "array", "minItems": 2, "maxItems": 2,
+      "items": { "type": "integer", "minimum": 0 }
+    },
+    "claim": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string" },
+        "theme": { "type": "string", "minLength": 1 },
+        "text": { "type": "string" },
+        "epistemicStatus": { "enum": ["fact", "evidence", "inference", "analysis", "unknown", "recommendation"] },
+        "priority": { "enum": ["blocker", "attention", "evidence", "normal", "info", "inference"] },
+        "filePath": { "type": "string", "minLength": 1 },
+        "filePaths": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "anchorText": { "type": "string", "minLength": 1 },
+        "lineRange": {
+          "type": "object",
+          "required": ["start", "end"],
+          "properties": {
+            "start": { "type": "integer", "minimum": 1 },
+            "end": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": false
+        },
+        "evidenceIds": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "source": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string" },
+        "excerpt": { "type": "string" },
+        "role": { "type": "string" },
+        "kind": { "type": "string" },
+        "locator": { "type": "string" },
+        "note": { "type": "string" }
+      },
+      "additionalProperties": true
+    }
+  },
   "type": "object",
   "required": ["schemaVersion", "bundleId", "bundleDigest", "mode", "createdAt", "title", "question", "summary", "comparison", "sources", "story", "files"],
   "properties": {
@@ -14,13 +77,17 @@
     "question": { "type": "string", "minLength": 1 },
     "summary": { "type": "string", "minLength": 1 },
     "comparison": { "type": "object" },
-    "sources": { "type": "array", "items": { "type": "object" } },
+    "sources": { "type": "array", "items": { "$ref": "#/$defs/source" } },
     "story": {
       "type": "object",
       "required": ["claims"],
-      "properties": { "claims": { "type": "array", "items": { "type": "object" } } }
+      "properties": { "claims": { "type": "array", "items": { "$ref": "#/$defs/claim" } } }
     },
-    "files": { "type": "array", "items": { "type": "object" } }
+    "files": { "type": "array", "items": {
+      "type": "object", "properties": {
+        "reviewBlocks": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/reviewBlock" } }
+      }
+    } }
   },
   "additionalProperties": false
 }

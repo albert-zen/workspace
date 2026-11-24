@@ -455,7 +455,18 @@ if (typeof document !== "undefined") (() => {
     if(progress?.blocks.length)progress.blocks.forEach(block=>article.append(renderBlock(block)));
     else article.append(el("p","",itemByKey(state.selected)?.item.summary||"尚未记录当前推进。"));
     shell.append(article);
+    (doc.intents||[]).forEach(intent=>{
+      const panel=el("details","work-evidence work-intent");
+      panel.dataset.panelKey=`intent:${intent.scope}`;
+      if(intent.scope==="work")panel.open=true;
+      const heading=el("summary","",intent.label||"原始意图"),body=el("article","work-document");
+      (intent.blocks||[]).forEach(block=>body.append(renderBlock(block,false)));
+      const source=el("p","property-secondary",intent.absolutePath||intent.path);
+      panel.append(heading,body,source);
+      shell.append(panel);
+    });
     const details=el("details","work-evidence"),summary=el("summary","","执行细节与来源"),body=el("article","work-document");
+    details.dataset.panelKey="evidence";
     (doc.remainingBlocks||doc.blocks).forEach(block=>body.append(renderBlock(block)));
     const source=el("p","property-secondary",doc.absolutePath||doc.path);details.append(summary,body,source);shell.append(details);
   }
@@ -484,9 +495,10 @@ if (typeof document !== "undefined") (() => {
     const panel=$("list-panel"),detail=$("detail-panel"),top=desktop()?panel.getBoundingClientRect().top:document.querySelector('.app-bar').getBoundingClientRect().bottom;
     const anchor=[...document.querySelectorAll('.status-group[open] [data-entry-key]')].find(node=>node.getBoundingClientRect().bottom>top);
     const anchorTop=anchor?.getBoundingClientRect().top, scroll=[panel.scrollTop,detail.scrollTop,window.scrollX,window.scrollY];
-    const expanded=[...document.querySelectorAll('#detail-content details')].map(node=>node.open);
+    const expandedByKey=new Map();
+    const expanded=[...document.querySelectorAll('#detail-content details')].map(node=>{if(node.dataset.panelKey)expandedByKey.set(node.dataset.panelKey,node.open);return node.open;});
     update();
-    document.querySelectorAll('#detail-content details').forEach((node,index)=>{node.open=expanded[index]||false;});
+    document.querySelectorAll('#detail-content details').forEach((node,index)=>{const key=node.dataset.panelKey;if(key&&expandedByKey.has(key))node.open=expandedByKey.get(key);else if(!key)node.open=expanded[index]||false;});
     panel.scrollTop=scroll[0];detail.scrollTop=scroll[1];window.scrollTo(scroll[2],scroll[3]);
     const next=anchor&&document.querySelector(`[data-entry-key="${CSS.escape(anchor.dataset.entryKey)}"]`);
     if(next){const delta=next.getBoundingClientRect().top-anchorTop;if(desktop())panel.scrollTop+=delta;else if(state.route==="list")window.scrollTo(scroll[2],scroll[3]+delta);}

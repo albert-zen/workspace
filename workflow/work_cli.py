@@ -16,6 +16,11 @@ def parser():
     p.add_argument('--root', type=Path, default=WORKSPACE_ROOT, help='保存记录的 workspace')
     p.add_argument('--json', action='store_true', help='输出可编程读取的 JSON')
     sub = p.add_subparsers(dest='command')
+    q = sub.add_parser('inbox', help='打开图形 Inbox；复用同一工作空间的服务或在当前终端启动')
+    q.add_argument('--port', type=int, default=8765, help='优先使用的本机端口；0 自动选择')
+    q.add_argument('--no-open', action='store_true', help='只打印地址，不自动打开浏览器')
+    q.add_argument('--export', action='store_true', help='将当前 Inbox 导出为只读 Markdown 快照，不启动服务')
+    q.add_argument('--output', type=Path, help='配合 --export 将快照写入指定文件')
     q = sub.add_parser('add', help='记录事项，无需预建 Work')
     q.add_argument('name'); q.add_argument('--summary')
     q = sub.add_parser('list', help='查看事项与状态'); q.add_argument('--all', action='store_true')
@@ -54,6 +59,17 @@ def parser():
     q.add_argument('--request-id', help=argparse.SUPPRESS)
     q = sub.add_parser('history', help='按需读取本事项的执行记录')
     q.add_argument('name'); q.add_argument('--limit', type=int, default=20)
+    q = sub.add_parser('intent', help='追加或查看事项/项目级原始意图（intent.md）')
+    intents = q.add_subparsers(dest='intent_action', required=True)
+    iadd = intents.add_parser('add', help='以 append-only 方式追加一条用户原始意图')
+    iadd.add_argument('name', nargs='?', help='项目/事项（与 --project 二选一）')
+    iadd.add_argument('--project', help='项目目录名（记录到项目级 intent.md）')
+    iadd.add_argument('--text', required=True, help='用户原始意图或原话')
+    iadd.add_argument('--source', help='可选：来源消息、PR、Issue 或对话定位')
+    iadd.add_argument('--context', help='可选：简短回复所指方案或上下文补充')
+    ishow = intents.add_parser('show', help='查看事项或项目关联的原始意图')
+    ishow.add_argument('name', nargs='?', help='项目/事项（与 --project 二选一）')
+    ishow.add_argument('--project', help='项目目录名（查看项目级 intent.md）')
     q = sub.add_parser('plan', help='编写版本化计划、查看步骤依赖图')
     plans = q.add_subparsers(dest='plan_action', required=True)
     pedit = plans.add_parser('edit', help='取得带版本的计划副本')
@@ -90,6 +106,24 @@ def main(argv=None):
         command = args.command
         if command is None:
             result = entry(store)
+        elif command == 'inbox':
+            if args.export:
+                markdown = store.export_inbox_markdown(args.output)
+                if args.output:
+                    args.output.parent.mkdir(parents=True, exist_ok=True)
+                    args.output.write_text(markdown, encoding='utf-8')
+                    if args.json:
+                        print(json.dumps({'exportedPath': str(args.output.resolve())}, ensure_ascii=False))
+                    else:
+                        print('已导出 Inbox 快照：' + str(args.output.resolve()))
+                else:
+                    if args.json:
+                        print(json.dumps({'markdown': markdown}, ensure_ascii=False))
+                    else:
+                        sys.stdout.write(markdown)
+                return 0
+            from .inbox_ui import open_inbox
+            return open_inbox(store.root, args.port, not args.no_open, args.json)
         elif command == 'install':
             result = install(store, args.bin_dir)
         elif command == 'add':
@@ -107,6 +141,11 @@ def main(argv=None):
             result = store.record_event(args.name, args.text, args.stage, args.step, args.status, args.summary, args.request_id)
         elif command == 'history':
             result = store.history(args.name, args.limit)
+        elif command == 'intent':
+            if args.intent_action == 'add':
+                result = store.intent_add(args.name, args.project, args.text, args.source, args.context)
+            else:
+                result = store.intent_show(args.name, args.project)
         elif command == 'plan':
             if args.plan_action == 'edit':
                 result = store.plan_edit(args.name, args.output)

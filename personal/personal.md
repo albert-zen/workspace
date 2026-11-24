@@ -6,15 +6,14 @@
 
 ```text
 personal/
-├── inbox/
 ├── captures/
 ├── syntheses/
 └── concepts/
 ```
 
-`inbox/` 是个人 Chief of Staff 的轻量操作入口，不属于笔记分类。实际事项只写在可直接阅读的 [`inbox/inbox.md`](inbox/inbox.md)；本机 Web App 在运行时读写这份 Markdown，写法与维护边界见 [`inbox/schema.md`](inbox/schema.md)。
+这三个笔记目录由独立私有 Git 仓库管理，本地仓库根为 `personal/`，只跟踪这三个目录及仓库 README、`.gitignore`。本文件仍归外层工作空间；执行 Git 操作时明确指定对应仓库，避免混用两者。Personal Inbox 的运行数据已移至 `agent-data/workflow/work.db`，不再混入 `personal/`。
 
-每台设备直接使用相同结构，但可以自行选择如何同步、备份或加密其中的内容。公开仓库的忽略规则本身不提供这些能力。
+每台设备可以自行选择同步、备份或加密方式。Git 提交不等于远端已同步，公开仓库的忽略规则也不提供备份或加密。
 
 ## 三种产物
 
@@ -34,7 +33,7 @@ Concept 保存可跨事件或情境复用的底层思想、模型和思考方法
 
 ## Agent 怎样使用
 
-只有用户明确要求记笔记时，Agent 才写入个人笔记目录。项目讨论归所属项目，工作空间自身的讨论归工作空间项目；`inbox/` 按 Chief 职责维护，不属于笔记目录。
+只有用户明确要求记笔记时，Agent 才写入个人笔记目录。项目讨论归所属项目，工作空间自身的讨论归工作空间项目；Inbox 由 Chief 通过 `work` CLI 和 SQLite 数据库维护，不属于笔记目录。
 
 Agent 根据当前问题选择需要的内容。通常可以先搜索相关 Concept，需要理解形成过程时再读取 Synthesis，需要核对原始事件时再查看 Capture；这只是减少无关读取的经验顺序，不是强制协议。
 

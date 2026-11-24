@@ -16,6 +16,7 @@ import uuid
 from .inbox_model import (Entry, InboxDocument, InboxError, StaleSourceError, SECTION_NAMES,
                          document_from_payload, document_to_api, parse_inbox_text,
                          revision_for, serialize_inbox, ordered_entries)
+from . import work_db
 from .work_documents import WorkDocuments
 from .work_flow import WorkFlowMixin, validate_document, section
 
@@ -78,11 +79,14 @@ class WorkStore(WorkFlowMixin):
         self.root = Path(root).resolve()
         self.inbox = self.root / 'personal/inbox/inbox.md'
         self.internal = self.root / 'agent-data/workflow'
+        self.db_path = self.internal / 'work.db'
         self.state_path = self.internal / 'state.json'
         self.pending = self.internal / 'pending.json'
         self.documents = WorkDocuments(self.root)
         self.launcher = WORKSPACE_ROOT / 'bin/work'
         self.baseline = {}
+        self._db_rev = ''
+        self._db_seq = 0
 
     def _path(self, relative):
         path = self.root / relative
@@ -98,6 +102,8 @@ class WorkStore(WorkFlowMixin):
     @contextmanager
     def _locked(self, recovering=False):
         self._path('agent-data/workflow').mkdir(parents=True, exist_ok=True)
+        for suffix in ('', '-wal', '-shm', '-journal'):
+            self._path('agent-data/workflow/work.db' + suffix)
         lock = self._path('agent-data/workflow/lock')
         with lock.open('a+b') as handle:
             if os.name == 'nt':
@@ -152,11 +158,11 @@ class WorkStore(WorkFlowMixin):
 
     def _apply(self, operation):
         # Check the write set, then check each target again immediately before replacement.
-        for change in operation['writes']:
+        for change in operation.get('writes', []):
             current = self._read(self._path(change['path']))
             if current not in (change['before'], change['after']):
                 fail(f"操作与外部修改冲突，保留当前文件：{change['path']}", 'recovery_conflict')
-        for change in operation['writes']:
+        for change in operation.get('writes', []):
             path = self._path(change['path'])
             current = self._read(path)
             if current == change['after']:
@@ -164,22 +170,50 @@ class WorkStore(WorkFlowMixin):
             if current != change['before']:
                 fail(f"文件在保存期间改变：{change['path']}", 'recovery_conflict')
             self._write(path, change['after'], expected=change['before'])
+        db_change = operation.get('db')
+        if db_change is not None:
+            doc = work_db.deserialize_doc_sections(db_change['sections'])
+            self._db_rev, self._db_seq = work_db.save_state_and_doc(
+                self.db_path,
+                db_change['state'],
+                doc,
+                expected_seq=db_change.get('expectedSeq'),
+                expected_inbox_rev=db_change.get('expectedInboxRev'),
+                operation_id=operation['id'],
+            )
         receipt = self.internal / 'operations' / (operation['id'] + '.json')
         # Recovery payloads live only in pending.json; business history is
-        # already stored in Work documents, events and plan versions.
+        # already stored in Work documents, events, plan versions and work.db.
         audit = {'version': 2, 'id': operation['id'], 'createdAt': operation['createdAt'],
                  'completedAt': now(),
                  'writes': [{'path': c['path'], 'before': file_fingerprint(c['before']),
-                             'after': file_fingerprint(c['after'])} for c in operation['writes']]}
+                             'after': file_fingerprint(c['after'])} for c in operation.get('writes', [])]}
+        if db_change is not None:
+            audit['db'] = {'path': 'agent-data/workflow/work.db', 'inboxRevision': self._db_rev, 'changeSeq': self._db_seq}
         self._write(receipt, encoded(audit))
         self._write(self.pending, None)
 
-    def _commit(self, state, doc, writes=None, expected=None):
+    def _validate_doc_invariants(self, doc):
+        seen_titles = set()
+        seen_ids = set()
+        for status in SECTION_NAMES:
+            for entry in doc.sections[status]:
+                title = entry.title.strip()
+                summary = entry.summary.strip()
+                if not title or not summary or '\n' in title or '\n' in summary or '\r' in title or '\r' in summary:
+                    fail('标题和摘要不能为空或换行。')
+                key = normalized(title)
+                if key in seen_titles:
+                    fail('条目标题必须全局唯一。')
+                seen_titles.add(key)
+                if entry.item_id:
+                    if entry.item_id in seen_ids:
+                        fail('事项内部标识重复。')
+                    seen_ids.add(entry.item_id)
+
+    def _commit(self, state, doc, writes=None, expected=None, *, expected_inbox_rev=None):
+        self._validate_doc_invariants(doc)
         writes = dict(writes or {})
-        rendered = serialize_inbox(doc, self.inbox, self.root)
-        parse_inbox_text(rendered, self.inbox, self.root, self.documents.allowed_paths())
-        writes['personal/inbox/inbox.md'] = rendered
-        writes['agent-data/workflow/state.json'] = encoded(state)
         changes = []
         for relative, after in writes.items():
             before = self._read(self._path(relative))
@@ -189,8 +223,25 @@ class WorkStore(WorkFlowMixin):
             if before != after:
                 changes.append({'path': str(relative), 'before': before, 'after': after})
         if not changes:
+            self._db_rev, self._db_seq = work_db.save_state_and_doc(
+                self.db_path,
+                state,
+                doc,
+                expected_seq=self._db_seq,
+                expected_inbox_rev=expected_inbox_rev,
+            )
             return
-        operation = {'id': uuid.uuid4().hex, 'createdAt': now(), 'writes': changes}
+        operation = {
+            'id': uuid.uuid4().hex,
+            'createdAt': now(),
+            'writes': changes,
+            'db': {
+                'state': state,
+                'sections': work_db.serialize_doc_sections(doc),
+                'expectedSeq': self._db_seq,
+                'expectedInboxRev': expected_inbox_rev,
+            },
+        }
         self._write(self.pending, encoded(operation))
         self._apply(operation)
         self.baseline.update(writes)
@@ -251,6 +302,17 @@ class WorkStore(WorkFlowMixin):
         return InboxDocument(sections, doc.newline, doc.final_newline)
 
     def _load(self):
+        self.baseline = {}
+        if self.db_path.is_file():
+            state, doc, rev, seq = work_db.load_state_and_doc(self.db_path)
+            if seq:
+                self._db_rev, self._db_seq = rev, seq
+                return state, doc
+            # An interrupted first transaction can leave an empty schema on disk.
+
+        # First run without work.db: migrate legacy state.json / inbox.md losslessly if present,
+        # leaving original files untouched as read-only backups.
+        has_legacy = self.state_path.exists() or self.inbox.exists()
         raw_state = self._read(self.state_path)
         try:
             state = json.loads(raw_state) if raw_state else {'version': 1, 'items': {}}
@@ -260,9 +322,14 @@ class WorkStore(WorkFlowMixin):
             fail('工作索引格式不受支持，原件已保留。', 'invalid_state')
         text = self._read(self.inbox)
         doc = parse_inbox_text(text, self.inbox, self.root, self.documents.allowed_paths()) if text is not None else self._empty()
-        self.baseline = {'personal/inbox/inbox.md': text, 'agent-data/workflow/state.json': raw_state}
         doc = self._adopt(state, doc)
-        self._commit(state, doc, expected={'personal/inbox/inbox.md': text, 'agent-data/workflow/state.json': raw_state})
+        self._db_rev, self._db_seq = work_db.save_state_and_doc(
+            self.db_path,
+            state,
+            doc,
+            expected_seq=0,
+            migrated_from_legacy_at=now() if has_legacy else None,
+        )
         return state, doc
 
     def _resolve(self, state, name):
@@ -285,26 +352,48 @@ class WorkStore(WorkFlowMixin):
                             arrangementNote=record.get('arrangement', ''),
                             closeoutPending=record.get('closeoutPending', []),
                             handoffCommand=command(self, 'resume', record['name']))
-        return {'sourcePath': 'personal/inbox/inbox.md', 'absoluteSourcePath': str(self.inbox),
-                'revision': revision_for(self.inbox.read_bytes()), 'sections': sections}
+        return {'sourcePath': 'agent-data/workflow/work.db', 'absoluteSourcePath': str(self.db_path),
+                'revision': self._db_rev, 'sections': sections}
+
+    def export_inbox_markdown(self, output=None):
+        with self._locked():
+            _, doc = self._load()
+            target = output.resolve() if output else self.inbox
+            if output and (target == self.inbox or target.is_relative_to(self.internal)
+                           or (target.exists() and target.stat().st_nlink > 1)
+                           or target in {self.root / path for path in self.documents.allowed_paths()}):
+                fail('导出目标会覆盖工作数据，请选择其他文件。')
+            return serialize_inbox(doc, target, self.root)
 
     def snapshot(self):
         with self._locked():
             state, doc = self._load()
             return self._snapshot(state, doc)
 
+    def _stat_token(self, relative):
+        path = self.root / relative
+        try:
+            for part in (path, *path.parents):
+                if part == self.root:
+                    break
+                if part.is_symlink():
+                    return 'forbidden'
+            stat = path.stat()
+            return f'{stat.st_ino}:{stat.st_size}:{stat.st_mtime_ns}:{stat.st_ctime_ns}'
+        except OSError:
+            return 'missing'
+
     def _view_versions(self):
-        # Metadata only: unchanged polls never parse Inbox or Work content.
-        paths = self.documents.allowed_paths() | {'personal/inbox/inbox.md',
-                                                  'agent-data/workflow/state.json'}
-        versions = {}
-        for relative in sorted(paths):
-            path = self.root / relative
-            try:
-                stat = path.stat()
-                versions[relative] = f'{stat.st_ino}:{stat.st_size}:{stat.st_mtime_ns}:{stat.st_ctime_ns}'
-            except FileNotFoundError:
-                versions[relative] = 'missing'
+        # Metadata only: unchanged polls never parse Inbox rows or Work content.
+        doc_paths = self.documents.allowed_paths()
+        versions = {
+            'agent-data/workflow/work.db': work_db.read_version_token(self.db_path),
+        }
+        for relative in sorted(doc_paths):
+            tokens = [self._stat_token(relative)]
+            for scope, intent_rel in self.documents.intent_candidates_for(relative):
+                tokens.append(f'{scope}:{self._stat_token(intent_rel)}')
+            versions[relative] = '|'.join(tokens)
         return versions
 
     def live_snapshot(self, version=''):
@@ -327,7 +416,7 @@ class WorkStore(WorkFlowMixin):
             state, old = self._load()
             if not isinstance(payload, dict) or set(payload) != {'expectedRevision', 'sections'}:
                 fail('请求必须且只能包含 expectedRevision 与 sections。')
-            if revision_for(self.inbox.read_bytes()) != payload['expectedRevision']:
+            if self._db_rev != payload['expectedRevision']:
                 raise StaleSourceError()
             doc = document_from_payload({'sections': payload['sections']}, self.inbox, self.root, self.documents.allowed_paths())
             # Older clients omit the optional pin field: preserve the existing state.
@@ -343,12 +432,11 @@ class WorkStore(WorkFlowMixin):
                 for entry in entries:
                     if entry.item_id and entry.item_id not in existing:
                         fail('未知事项标识，不能覆盖其他事项。')
-            before = self._read(self.inbox)
             known = set(state['items'])
             doc = self._adopt(state, doc)
             for identity in set(state['items']) - known:
                 state['items'][identity]['lifecycleStatus'] = 'planned'
-            self._commit(state, doc, expected={'personal/inbox/inbox.md': before})
+            self._commit(state, doc, expected_inbox_rev=payload['expectedRevision'])
             return self._snapshot(state, doc)
 
     def _put_entry(self, doc, record, status=None, before=None, include=True):
@@ -372,8 +460,6 @@ class WorkStore(WorkFlowMixin):
             state, doc = self._load()
             record = self._new_record(state, name, summary)
             doc = self._put_entry(doc, record, 'Waiting')
-            # Validate the canonical text before any content write.
-            parse_inbox_text(serialize_inbox(doc, self.inbox, self.root), self.inbox, self.root, self.documents.allowed_paths())
             self._commit(state, doc)
             return self._view(record)
 
@@ -390,11 +476,123 @@ class WorkStore(WorkFlowMixin):
         result = json.loads(encoded(record))
         path = self._path(record['workPath']) if record.get('workPath') else None
         result['absoluteWorkPath'] = str(path) if path else None
-        result['revision'] = revision_for(encoded(record).encode() + (path.read_bytes() if path and path.exists() else b''))
+        defaults = dict(arrangement='', pinned=False, stage=None, planVersion=0, eventCount=0,
+                        run=1, completedAt=None, result=None, stepStates={})
+        payload = json.dumps({**defaults, **record}, ensure_ascii=False, sort_keys=True).encode()
+        result['revision'] = revision_for(payload + (path.read_bytes() if path and path.exists() else b''))
         if document:
             result['document'] = path.read_text(encoding='utf-8') if path and path.is_file() else ''
             result['documentMissing'] = bool(path and not path.is_file())
+            result['intents'] = self._intent_summaries(record.get('workPath') or '')
         return result
+
+    def _intent_summaries(self, work_path):
+        if not work_path:
+            return []
+        labels = {'work': '事项原始意图', 'project': '项目原始意图'}
+        seen = set()
+        found = []
+        for scope, rel in self.documents.intent_candidates_for(work_path):
+            if scope in seen:
+                continue
+            target = self.documents._resolve_intent(rel)
+            if target is not None:
+                found.append({'scope': scope, 'label': labels[scope],
+                              'path': target.relative_to(self.root).as_posix(),
+                              'absolutePath': str(target)})
+                seen.add(scope)
+        return found
+
+    def _validate_project_context(self, project):
+        if not isinstance(project, str) or not project.strip():
+            fail('项目名不能为空。')
+        cleaned = project.strip()
+        if any(c in cleaned for c in ('/', '\\', '\0', '\n', '\r')) or cleaned in {'.', '..'}:
+            fail('项目名必须为单个安全目录名，不能包含路径分隔符或特殊字符。')
+        return cleaned
+
+    def _resolve_intent_target(self, state, name=None, project=None):
+        if bool(name) == bool(project):
+            fail('请指定一个目标：提供「项目/事项」或使用 --project <项目名>，二者选其一。')
+        if project:
+            ctx = self._validate_project_context(project)
+            rel = f'agent-data/projects/{ctx}/intent.md'
+            return {'scope': 'project', 'project': ctx, 'title': ctx, 'path': rel, 'record': None}
+        record = self._resolve(state, name)
+        work_path = record.get('workPath')
+        if not work_path:
+            fail('该事项还没有建立 Work 文档，请先执行 work start。', 'work_not_started')
+        candidates = [rel for scope, rel in self.documents.intent_candidates_for(work_path) if scope == 'work']
+        if not candidates:
+            fail('无法确定事项的 intent.md 位置。')
+        ctx = record['name'].split('/', 1)[0]
+        return {'scope': 'work', 'name': record['name'], 'project': ctx, 'title': record['title'],
+                'path': candidates[0], 'record': record}
+
+    def intent_add(self, name=None, project=None, text='', source=None, context=None):
+        if not isinstance(text, str) or not text.strip():
+            fail('原始意图内容（--text）不能为空。')
+        with self._locked():
+            state, doc = self._load()
+            target = self._resolve_intent_target(state, name=name, project=project)
+            relative = target['path']
+            path = self._path(relative)
+            existing = self._read(path)
+            self.baseline[relative] = existing
+            created = existing is None
+            timestamp = now()
+            lines = [f'## {timestamp}', '']
+            if source and source.strip():
+                lines.extend([f'来源：{source.strip()}', ''])
+            quote_lines = text.strip().replace('\r\n', '\n').replace('\r', '\n').split('\n')
+            lines.extend('> ' + line if line else '>' for line in quote_lines)
+            if context and context.strip():
+                lines.extend(['', '所指方案／上下文补充：' + context.strip()])
+            entry = '\n'.join(lines) + '\n\n'
+            if created:
+                header = (f"# 原始意图 · {target['title']}\n\n"
+                          "> 本文件由 `work intent` 追加维护，只保留原始意图与来源，不改写已有条目。\n\n")
+                updated = header + entry
+            else:
+                normalized_end = existing.replace('\r\n', '\n')
+                separator = '' if normalized_end.endswith('\n\n') else '\n' if normalized_end.endswith('\n') else '\n\n'
+                updated = existing + separator + entry
+            self._commit(state, doc, {relative: updated}, {relative: existing})
+            result = {'scope': target['scope'], 'project': target['project'],
+                      'path': relative, 'absolutePath': str(path),
+                      'timestamp': timestamp, 'created': created}
+            if target.get('name'):
+                result['name'] = target['name']
+            return result
+
+    def intent_show(self, name=None, project=None):
+        with self._locked():
+            state, _ = self._load()
+            target = self._resolve_intent_target(state, name=name, project=project)
+            labels = {'work': '事项原始意图', 'project': '项目原始意图'}
+            items = []
+            if target['scope'] == 'project':
+                resolved = self.documents._resolve_intent(target['path'])
+                if resolved is not None:
+                    items.append({'scope': 'project', 'label': labels['project'],
+                                  'path': target['path'], 'absolutePath': str(resolved),
+                                  'text': resolved.read_text(encoding='utf-8')})
+            else:
+                seen = set()
+                for scope, rel in self.documents.intent_candidates_for(target['record']['workPath']):
+                    if scope in seen:
+                        continue
+                    resolved = self.documents._resolve_intent(rel)
+                    if resolved is not None:
+                        items.append({'scope': scope, 'label': labels[scope],
+                                      'path': resolved.relative_to(self.root).as_posix(),
+                                      'absolutePath': str(resolved),
+                                      'text': resolved.read_text(encoding='utf-8')})
+                        seen.add(scope)
+            result = {'scope': target['scope'], 'project': target['project'], 'intents': items}
+            if target.get('name'):
+                result['name'] = target['name']
+            return result
 
     def list(self, include_hidden=False):
         with self._locked():
@@ -554,7 +752,6 @@ class WorkStore(WorkFlowMixin):
                 if progress is not None:
                     self._event(record, 'update', progress, writes, prior_document=original)
             doc = self._put_entry(doc, record, include=record.get('inbox', True))
-            parse_inbox_text(serialize_inbox(doc, self.inbox, self.root), self.inbox, self.root, self.documents.allowed_paths())
             self._commit(state, doc, writes, expected)
             return self._view(record, document=True)
 

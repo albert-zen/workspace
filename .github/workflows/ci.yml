@@ -1,0 +1,51 @@
+name: Workspace CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.12"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Check Python syntax
+        run: |
+          python -m compileall -q workflow
+          python -m py_compile practices/communication/html/inbox/scripts/inbox_app.py
+          python -m py_compile practices/communication/html/review/scripts/workbench.py
+
+      - name: Run workspace, CLI, and doc integrity tests
+        run: python -B -m unittest discover -s tests -p 'test_*.py'
+
+      - name: Run Inbox Web App tests
+        run: |
+          python -B -m unittest discover -s practices/communication/html/inbox/tests -p 'test_*.py'
+          node --check practices/communication/html/inbox/assets/inbox.js
+          node --check practices/communication/html/shared/components.js
+          node --test practices/communication/html/inbox/tests/*.test.cjs
+
+      - name: Run HTML Review Workbench tests
+        run: |
+          python -B -m unittest discover -s practices/communication/html/review/tests -p 'test_*.py'
+          node --check practices/communication/html/review/assets/workbench.js

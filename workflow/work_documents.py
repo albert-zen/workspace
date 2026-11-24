@@ -256,6 +256,78 @@ class WorkDocuments:
             rows.append({"path": path, "title": title, "project": "/".join(parts[2:work_index]), "state": parts[work_index + 1]})
         return sorted(rows, key=lambda row: (row["state"] != "active", row["project"].casefold(), row["title"].casefold()))
 
+    def intent_candidates_for(self, path: str) -> list[tuple[str, str]]:
+        """Return allowed (scope, relative_posix_path) candidates for a Work document."""
+        parts = PurePosixPath(path).parts
+        if (len(parts) < 6 or parts[:2] != ("agent-data", "projects")
+                or parts[-3] != "work" or parts[-2] not in {"active", "archive"}
+                or not parts[-1].endswith(".md")):
+            return []
+        project = "/".join(parts[2:-3])
+        stem = parts[-1][:-3]
+        candidates = [
+            ("work", f"agent-data/projects/{project}/work/active/{stem}/intent.md"),
+        ]
+        if parts[-2] == "archive":
+            candidates.append(("work", f"agent-data/projects/{project}/work/archive/{stem}/intent.md"))
+        candidates.append(("project", f"agent-data/projects/{project}/intent.md"))
+        return candidates
+
+    def _resolve_intent(self, path: str) -> Path | None:
+        key = PurePosixPath(path)
+        parts = key.parts
+        if (key.is_absolute() or "\\" in path or ".." in parts
+                or key.as_posix() != path or len(parts) < 4
+                or parts[:2] != ("agent-data", "projects")
+                or parts[-1] != "intent.md"):
+            return None
+        candidate = self.repo_root / path
+        if not candidate.exists():
+            return None
+        for parent in (candidate, *candidate.parents):
+            if parent == self.repo_root:
+                break
+            if parent.is_symlink():
+                return None
+        try:
+            resolved = candidate.resolve(strict=True)
+            resolved.relative_to(self.projects_root)
+            if not resolved.is_file():
+                return None
+        except (OSError, ValueError):
+            return None
+        return resolved
+
+    def read_intents_for(self, path: str) -> list[dict[str, object]]:
+        labels = {"work": "事项原始意图", "project": "项目原始意图"}
+        seen_scopes: set[str] = set()
+        results: list[dict[str, object]] = []
+        for scope, rel in self.intent_candidates_for(path):
+            if scope in seen_scopes:
+                continue
+            resolved = self._resolve_intent(rel)
+            if resolved is None:
+                continue
+            try:
+                text = resolved.read_text(encoding="utf-8")
+                if self._resolve_intent(rel) != resolved:
+                    continue
+                parsed = parse_work_markdown(text)
+            except (OSError, UnicodeError):
+                continue
+            blocks = [block for block in parsed["blocks"]
+                      if not (block["type"] == "heading" and block["level"] == 1)]
+            results.append({
+                "scope": scope,
+                "label": labels[scope],
+                "path": resolved.relative_to(self.repo_root).as_posix(),
+                "absolutePath": str(resolved),
+                "title": parsed["title"],
+                "blocks": blocks,
+            })
+            seen_scopes.add(scope)
+        return results
+
     def read(self, path: str) -> dict[str, object]:
         resolved = self._resolve_document(path)
         try:
@@ -269,7 +341,14 @@ class WorkDocuments:
         canonical = resolved.relative_to(self.repo_root).as_posix()
         parts = PurePosixPath(canonical).parts
         work_index = parts.index("work")
-        return {**parsed, "path": canonical, "absolutePath": str(resolved), "project": "/".join(parts[2:work_index]), "state": parts[work_index + 1]}
+        return {
+            **parsed,
+            "path": canonical,
+            "absolutePath": str(resolved),
+            "project": "/".join(parts[2:work_index]),
+            "state": parts[work_index + 1],
+            "intents": self.read_intents_for(canonical),
+        }
 
 
 def read_work_title(path: Path) -> str:

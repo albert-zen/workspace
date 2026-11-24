@@ -43,7 +43,8 @@ class WorkJourneyTests(unittest.TestCase):
             return result.stdout
 
         run('start', 'demo/Default root', '--summary', 'No UI required')
-        self.assertTrue((checkout / 'personal/inbox/inbox.md').is_file())
+        self.assertTrue((checkout / 'agent-data/workflow/work.db').is_file())
+        self.assertFalse((checkout / 'personal/inbox/inbox.md').exists())
         data = self.root / 'separate data'
         run('--root', str(data), 'start', 'demo/Independent', '--summary', 'Separate data')
         self.assertIn('Separate data', run('--root', str(data), 'resume', 'demo/Independent'))
@@ -83,7 +84,7 @@ class WorkJourneyTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         for command in ('start', 'resume', 'edit', 'finish'):
             self.assertIn(command, result.stdout)
-        self.assertIn('workflow.md', result.stdout)
+        self.assertIn('collaboration.md', result.stdout)
         self.assertFalse((self.root / 'personal/inbox/inbox.md').exists())
         self.assertFalse((self.root / 'agent-data/workflow').exists())
 

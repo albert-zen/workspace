@@ -22,6 +22,6 @@ node references/archify/archify/bin/archify.mjs deliver <type> <input.json> <out
 
 JSON 与 HTML 保存在所属事项的 artifacts 中，保留事实来源。修改 JSON 后重新验证和生成，避免手改 HTML 形成另一份事实源。实际交付按照上游当前版本的交付约定核对浏览器行为与视觉效果，分别说明确定性检查、浏览器证据和视觉审阅；不把某一层通过当成全部通过。
 
-每次实际使用时，在所属事项中保存这次输入、输出和验证依据；上一次验证不能代替当前环境的检查。
+一次接入的烟雾检查记录保存在实际工作空间的 `agent-data/projects/workspace/artifacts/archify-integration/README.md`，不作为当前运行或浏览器验收的证明。
 
 外部 Skill 是按需参考，工作空间目标、用户指令与实际工具授权保持优先。升级时同时复核入口、schema、命令和生成结果，再更新 gitlink；不直接修改参考仓库实现。

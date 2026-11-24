@@ -1,29 +1,28 @@
 # Interactive Personal Inbox
 
-这是一个零新增依赖的本机 Web App。`personal/inbox/inbox.md` 保存个人关注内容，关联 Work 保存事项说明与执行记录；Web App 与 `bin/work` 都调用根目录 [`workflow/`](../../../../workflow/README.md) 的维护逻辑。HTML、CSS 与 JavaScript 是无内容应用 shell，页面启动后通过固定 API 读取和原子回写 Markdown。
+这是一个零新增依赖的本机 Web App。Inbox 关注条目与工作流元数据保存在 SQLite 数据库 `agent-data/workflow/work.db`（Python 标准库 `sqlite3`，WAL 模式），关联 Work 正文与 `intent.md` 继续保持可读 Markdown；Web App 与 `bin/work` 共用根目录 [`workflow/`](../../../../workflow/README.md) 的维护逻辑。HTML、CSS 与 JavaScript 是无内容应用 shell，页面启动后通过固定 API 读取并经事务提交更新。
 
 运行时需要 Python 3.9 或以上；Git 资源管理使用各平台对应的文件锁，支持 Windows、macOS 和 Linux。从 workspace 根目录运行：
 
 ```text
-python practices/communication/html/inbox/scripts/inbox_app.py --repo-root /path/to/workspace
+python bin/work --root /path/to/workspace inbox
 ```
 
-默认地址是 `http://127.0.0.1:8765/`。使用 `--port <n>` 选择其他端口，或加 `--open` 请求系统浏览器打开。服务只监听 loopback；端口占用会打印可执行错误，不会切换到外网地址。
+默认请求浏览器打开 `http://127.0.0.1:8765/`。使用 `--port <n>` 指定优先端口（0 自动选择），`--no-open` 只打印地址。命令核对 `/api/identity` 中的应用身份、工作空间与 Inbox 来源路径后才复用已有服务；其他占用自动避开。首次打开可初始化空 Inbox，无需先创建事项。新服务在当前终端运行，Ctrl+C 结束；复用已有服务则立即返回。浏览器不可用时打印可手动打开的地址。
+
+服务只监听 loopback。底层脚本入口仍可使用 `python practices/communication/html/inbox/scripts/inbox_app.py --repo-root /path/to/workspace --open`，但需要已有 Inbox，且端口占用时直接报错。
 
 ## 产品边界
 
-- Inbox 内容写入配置 root 下固定的 `personal/inbox/inbox.md`；whole-document PUT 携带 revision，并与 CLI 共用名称解析、身份和版本检查逻辑。
-- 写入使用同目录临时文件、flush/fsync、紧邻 replace 的第二次 stale 检查和 `os.replace`；409 不覆盖来源，浏览器保留草稿。
-- Work 文档接口只枚举、读取 `agent-data/projects/**/work/active|archive/*.md` 的文档；可以只读显示完整正文，没有任意文件 API。
+- Inbox 与工作流元数据写入配置 root 下固定的 SQLite 数据库 `agent-data/workflow/work.db`；首次启动时若存在旧版 `personal/inbox/inbox.md` 或 `agent-data/workflow/state.json`，会自动无损导入并保留原文件作只读备份。`PUT /api/inbox` 携带 revision 做乐观锁校验，409 冲突时保留浏览器草稿。
+- Work 文档接口只枚举、读取 `agent-data/projects/**/work/active|archive/*.md` 的文档，并附带只读渲染关联的事项级/项目级 `intent.md`（由 `work intent add` 维护）；没有任意文件 API。
 - Work Markdown 先解析成安全 AST，浏览器用 DOM API 构造 H1–H4、段落、列表、代码、引用与链接。来源 HTML 只显示为文字。
 - Issue 只保存和打开安全 HTTPS URL；没有 GitHub token、provider API 或远端 mutation。
-- 没有数据库、localStorage、登录、云服务、daemon、框架或包安装。Work 和 Inbox 正文仍是直接可读的 Markdown。
+- 零第三方依赖（仅 Python 标准库 `sqlite3`），没有登录、云服务、daemon、前端框架或包安装。Work 与 `intent.md` 正文仍是直接可读的 Markdown；需要 Inbox 纯文本快照时可运行 `bin/work inbox --export`。
 
-日常维护见 [`practices/collaboration/workflow.md`](../../../collaboration/workflow.md)。Work 工具的 pause/cancel/reopen/finish 会按状态契约同步 Inbox 分类或可见性；Inbox 的个人 arrange 仍只改变关注安排。任何一种同步都不控制、中断或暂停运行中的 Agent 或平台任务。
+日常维护见 [`practices/collaboration.md`](../../../collaboration.md)。Work 工具的 pause/cancel/reopen/finish 会同步 Inbox 分类或可见性；Inbox 的个人 arrange 仍只改变关注安排。任何一种同步都不控制、中断或暂停运行中的 Agent 或平台任务。
 
 运行 `bin/work` 可直接查看常用操作，无需先通读手册。已有事项保留原上下文；计划由 `plan` 命令版本化，步骤可选 checkbox 与语义名称依赖图；`record` 追加 append-only 执行记录，时间和计划版本由工具填写，并可在同一写入操作提供摘要。接手输出默认折叠 `## 历史记录`，`resume --full` 展开；缺少标准章节的旧文档完整返回。`--json` 保持完整原始记录，图形界面的正文读取不受折叠影响。
-
-详细 Markdown grammar 见 [`personal/inbox/schema.md`](../../../../personal/inbox/schema.md)。
 
 ## 验证
 
@@ -89,7 +88,7 @@ CLI 与 GUI 的写入共用本机锁，并在替换文件前再次核对版本�
 
 ### 自动同步
 
-服务内只有一个共享观察线程，每 750ms 检查 Inbox、工作流状态与允许的 Work 文件元信息；未变化时不解析正文。`/api/events` 通过 SSE 通知页面版本变化，`/api/snapshot` 在工作流锁内读取关联数据；文件读取期间再次变化则重试。仍以 Markdown 为来源，不增加数据库、框架或第三方依赖。
+服务内只有一个共享观察线程，每 750ms 检查 SQLite 数据库状态与允许的 Work / `intent.md` 文件元信息；未变化时不解析正文。`/api/events` 通过 SSE 通知页面版本变化，`/api/snapshot` 在工作流锁内读取关联数据；文件读取期间再次变化则重试。Inbox 元数据由本机 SQLite 数据库（Python 标准库 `sqlite3`）维护，关联 Work 与 `intent.md` 仍为可读 Markdown，不引入外部框架或第三方依赖。
 
 页面合并连续通知，只刷新变动内容，保留项目筛选、分类折叠、选中事项、滚动位置与键盘焦点。滚动、打开选择菜单、选择文本和编辑期间延后更新；草稿及其保存版本不被后台更新覆盖，保存冲突仍通过现有 409 对照流程处理。页面隐藏时关闭订阅，返回或断线重连后核对最新版本；读取失败保留当前内容并重试。
 
@@ -103,7 +102,7 @@ CLI 与 GUI 的写入共用本机锁，并在替换文件前再次核对版本�
 
 整条事项可按住拖动，无独立手柄；右侧操作按钮保持普通点击，不触发拖动。拖到同组事项前后调整顺序；拖到区块标题可移入该区块，包括空区块和收起的区块。插入线显示落点。置顶与普通组之间需先明确切换置顶状态，拖动不会隐式切换。触屏和键盘可使用详情的按钮和“移到区块”选择。筛选只改变显示，排序保存整份 Inbox，保留未显示的项目。
 
-顺序与置顶写入同一 Markdown 来源，刷新、编辑和 CLI 更新均保留；保存期间暂停自动刷新和其他写入操作。版本冲突不覆盖后台内容，显示未保存提示，读取最新后可重新操作。
+顺序与置顶写入同一 SQLite 数据库（`agent-data/workflow/work.db`），刷新、编辑和 CLI 更新均保留；保存期间暂停自动刷新和其他写入操作。版本冲突不覆盖后台内容，显示未保存提示，读取最新后可重新操作。
 
 ### 未保存输入与导航
 
